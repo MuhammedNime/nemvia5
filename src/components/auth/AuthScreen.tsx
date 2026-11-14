@@ -2,15 +2,19 @@ import React, { useEffect, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
   getRedirectResult,
+  GoogleAuthProvider,
   sendEmailVerification,
   sendPasswordResetEmail,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   updateProfile,
 } from 'firebase/auth';
-import { GraduationCap, AlertCircle, CheckCircle2, Loader2, Mail, Lock, User } from 'lucide-react';
+import { Browser } from '@capacitor/browser';
+import { GraduationCap, AlertCircle, CheckCircle2, Loader2, Mail, Lock, User, ExternalLink } from 'lucide-react';
 import { auth, googleProvider } from '../../lib/firebase';
 import { ensureOwnProfile } from '../../lib/api';
+import { ANDROID_AUTH_REDIRECT_URL, getRemoteAppBaseUrl, isNativeApp } from '../../lib/native';
 import { LegalContent } from '../views/LegalView';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
@@ -63,8 +67,54 @@ export const AuthScreen: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mobileCallbackUrl, setMobileCallbackUrl] = useState<string | null>(null);
+
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isMobileAuthHandoff = !isNativeApp() && searchParams?.get('mobile_auth') === '1';
+  const handoffRole = (searchParams?.get('role') === 'teacher' ? 'teacher' : 'student') as 'student' | 'teacher';
 
   useEffect(() => {
+    if (isMobileAuthHandoff) {
+      setRole(handoffRole);
+    }
+  }, [isMobileAuthHandoff, handoffRole]);
+
+  useEffect(() => {
+    const completeNativeOAuth = async (detail?: { idToken?: string; accessToken?: string; role?: string }) => {
+      if (!detail || (!detail.idToken && !detail.accessToken)) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const chosenRole = (detail.role === 'teacher' || detail.role === 'student'
+          ? detail.role
+          : (localStorage.getItem('nemvia-pending-role') as 'student' | 'teacher' | null)) || role;
+        const credential = GoogleAuthProvider.credential(detail.idToken || null, detail.accessToken || null);
+        const cred = await signInWithCredential(auth, credential);
+        if (cred?.user) {
+          localStorage.removeItem('nemvia-pending-role');
+          await ensureOwnProfile(cred.user, chosenRole);
+        }
+      } catch (err: any) {
+        setError(arabicAuthError(err));
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    const win = window as unknown as { __nemviaPendingNativeOAuth?: { idToken?: string; accessToken?: string; role?: string } };
+    if (win.__nemviaPendingNativeOAuth) {
+      const pending = win.__nemviaPendingNativeOAuth;
+      delete win.__nemviaPendingNativeOAuth;
+      void completeNativeOAuth(pending);
+    }
+
+    const onNativeOAuth = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ idToken?: string; accessToken?: string; role?: string }>).detail;
+      delete win.__nemviaPendingNativeOAuth;
+      void completeNativeOAuth(detail);
+    };
+    window.addEventListener('nemvia:native-oauth', onNativeOAuth);
+
     getRedirectResult(auth)
       .then(async res => {
         if (res?.user && res.user.emailVerified) {
@@ -74,13 +124,57 @@ export const AuthScreen: React.FC = () => {
         }
       })
       .catch(err => setError(arabicAuthError(err)));
-  }, []);
+
+    return () => {
+      window.removeEventListener('nemvia:native-oauth', onNativeOAuth);
+    };
+  }, [role]);
+
+  const completeHandoffGoogle = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const oauthCred = GoogleAuthProvider.credentialFromResult(cred);
+      const idToken = oauthCred?.idToken || '';
+      const accessToken = oauthCred?.accessToken || '';
+      if (!idToken && !accessToken) {
+        setError('تعذّر استلام رمز المصادقة من Google. حاول مجدداً.');
+        return;
+      }
+      const params = new URLSearchParams();
+      if (idToken) params.set('id_token', idToken);
+      if (accessToken) params.set('access_token', accessToken);
+      params.set('role', handoffRole);
+      const targetUrl = `${ANDROID_AUTH_REDIRECT_URL}#${params.toString()}`;
+      setMobileCallbackUrl(targetUrl);
+      window.location.href = targetUrl;
+    } catch (err: any) {
+      setError(arabicAuthError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const signInGoogle = async () => {
     setError(null);
     setInfoMsg(null);
     if (!agreed) {
       setError('يجب الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.');
+      return;
+    }
+    if (isNativeApp()) {
+      setBusy(true);
+      try {
+        localStorage.setItem('nemvia-pending-role', role);
+        const handoffUrl = `${getRemoteAppBaseUrl()}/?mobile_auth=1&role=${encodeURIComponent(role)}`;
+        await Browser.open({ url: handoffUrl, toolbarColor: '#0f233a' });
+        setInfoMsg('أكمل تسجيل الدخول في المتصفح المفتوح وسيتم إعادتك تلقائياً للتطبيق.');
+      } catch (err: any) {
+        setError(arabicAuthError(err));
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     setBusy(true);
@@ -143,6 +237,49 @@ export const AuthScreen: React.FC = () => {
       setBusy(false);
     }
   };
+
+  if (isMobileAuthHandoff) {
+    return (
+      <div className="min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 font-['Cairo',sans-serif]" dir="rtl">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#0f233a] to-[#1677c7] text-white flex items-center justify-center shadow-md">
+            <GraduationCap className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-xl font-black text-slate-900">تسجيل الدخول لتطبيق NEMVIA</h1>
+            <p className="text-xs text-slate-500">
+              الدور المختار: <span className="font-bold text-[#1677c7]">{handoffRole === 'teacher' ? 'معلم' : 'طالب'}</span>
+            </p>
+          </div>
+          {error && (
+            <div className="p-3 bg-rose-50 text-rose-800 rounded-xl border border-rose-200 flex items-start gap-2 text-xs font-bold text-right">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+          {!mobileCallbackUrl ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={completeHandoffGoogle}
+              className="w-full min-h-[48px] py-3.5 px-4 bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-60 text-white font-black rounded-xl text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer"
+            >
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              <span>اضغط هنا لتسجيل الدخول بحساب Google</span>
+            </button>
+          ) : (
+            <a
+              href={mobileCallbackUrl}
+              className="w-full min-h-[48px] py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-sm flex items-center justify-center gap-2 shadow-md"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>تم التحقق — اضغط للعودة لتطبيق NEMVIA</span>
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 font-['Cairo',sans-serif]" dir="rtl">

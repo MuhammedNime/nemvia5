@@ -1,6 +1,6 @@
 import { r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { Ct as Clock, D as Send, Kt as Award, Nt as Check, Q as LoaderCircle, Yt as require_react, f as TriangleAlert, gt as FileText, ht as FileUp, kt as CircleCheck, n as X, vt as ExternalLink, y as Sparkles, yt as Download } from "./icons-y6mUmdUg.js";
-import { c as reviewAssignmentAI } from "./ai-BduQZiAQ.js";
+import { c as reviewAssignmentAI } from "./ai-DYfzclpk.js";
 import { t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
 // src/components/views/AssignmentsView.tsx
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);

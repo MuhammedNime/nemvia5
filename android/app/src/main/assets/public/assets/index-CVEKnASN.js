@@ -1,8 +1,8 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/ClassesView-DeAE4LYe.js","assets/rolldown-runtime-SbdDWaPq.js","assets/icons-y6mUmdUg.js","assets/react-vendor-CpCOhAWp.js","assets/CoursesView-BiJOYvxk.js","assets/ai-BduQZiAQ.js","assets/questionBank-CLFgLnk1.js","assets/AssignmentsView-QN2ZBdX_.js","assets/CommunityView-DQm37424.js","assets/LiveClassroomView-D0C5EpPk.js","assets/MessagesView-CiK5uH0m.js","assets/StudyToolsView-D6CcMMpL.js","assets/AIStudioView-N3PHT2O_.js","assets/AdminView-CRYUC0iy.js","assets/ProfileView-CG1j2L7z.js","assets/firebase-Cw5EUFwp.js","assets/SettingsView-7wkgzTM3.js","assets/CalendarView-DvfzGtTh.js","assets/GradebookView-D_9TqkD0.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/ClassesView-B8bowTQ1.js","assets/rolldown-runtime-SbdDWaPq.js","assets/icons-y6mUmdUg.js","assets/react-vendor-CpCOhAWp.js","assets/CoursesView-CzeXxgtZ.js","assets/ai-DYfzclpk.js","assets/questionBank-CLFgLnk1.js","assets/AssignmentsView-CXgiryfR.js","assets/CommunityView-DQm37424.js","assets/LiveClassroomView-sWN8sKbK.js","assets/MessagesView-CiK5uH0m.js","assets/StudyToolsView-BqO-RRMz.js","assets/AIStudioView-D2dMz7R0.js","assets/AdminView-CRYUC0iy.js","assets/ProfileView-CYVeIy5O.js","assets/firebase-ClLwtwdv.js","assets/SettingsView-CSx0au6Y.js","assets/CalendarView-raaFqbeu.js","assets/GradebookView-yXT0n4PV.js"])))=>i.map(i=>d[i]);
 import { n as __exportAll, r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { n as require_client, t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
-import { A as RotateCw, At as CircleAlert, C as ShieldCheck, Dt as CircleUser, E as Settings, G as MessageSquare, Gt as BellRing, J as Mail, Kt as Award, Lt as Calendar, N as RefreshCw, Nt as Check, O as Search, P as Radio, Pt as CheckCheck, Q as LoaderCircle, Ut as BookOpen, Wt as Bell, X as LogOut, Y as MailCheck, Yt as require_react, Z as Lock, _t as FileCheck, a as Volume2, b as Smartphone, f as TriangleAlert, ft as Flame, gt as FileText, i as VolumeX, k as Scale, kt as CircleCheck, lt as GraduationCap, n as X, nt as LayoutGrid, o as Users, ot as House, pt as Flag, qt as ArrowDown, r as WifiOff, rt as Layers, s as User, w as ShieldAlert, wt as ClipboardList, y as Sparkles, yt as Download, zt as Building2 } from "./icons-y6mUmdUg.js";
-import { A as sendPasswordResetEmail, C as serverTimestamp, D as getRedirectResult, E as getAuth, F as updateProfile$2, I as initializeApp, M as signInWithPopup, N as signOut, O as onAuthStateChanged, S as increment, T as createUserWithEmailAndPassword, _ as writeBatch, a as addDoc, b as doc, c as getDocFromServer, d as onSnapshot, f as orderBy, g as where, h as updateDoc, i as uploadBytes, j as signInWithEmailAndPassword, k as sendEmailVerification, l as getDocs, m as setDoc, n as getStorage, o as deleteDoc, p as query, r as ref, s as getDoc, t as getDownloadURL, u as limit, v as Timestamp, w as GoogleAuthProvider, x as getFirestore, y as collection } from "./firebase-Cw5EUFwp.js";
+import { A as RotateCw, At as CircleAlert, C as ShieldCheck, Dt as CircleUser, E as Settings, G as MessageSquare, Gt as BellRing, J as Mail, Kt as Award, Lt as Calendar, N as RefreshCw, Nt as Check, O as Search, P as Radio, Pt as CheckCheck, Q as LoaderCircle, Ut as BookOpen, Wt as Bell, X as LogOut, Y as MailCheck, Yt as require_react, Z as Lock, _t as FileCheck, a as Volume2, b as Smartphone, f as TriangleAlert, ft as Flame, gt as FileText, i as VolumeX, k as Scale, kt as CircleCheck, lt as GraduationCap, n as X, nt as LayoutGrid, o as Users, ot as House, pt as Flag, qt as ArrowDown, r as WifiOff, rt as Layers, s as User, vt as ExternalLink, w as ShieldAlert, wt as ClipboardList, y as Sparkles, yt as Download, zt as Building2 } from "./icons-y6mUmdUg.js";
+import { A as sendPasswordResetEmail, C as serverTimestamp, D as getRedirectResult, E as getAuth, I as updateProfile$2, L as initializeApp, M as signInWithEmailAndPassword, N as signInWithPopup, O as onAuthStateChanged, P as signOut, S as increment, T as createUserWithEmailAndPassword, _ as writeBatch, a as addDoc, b as doc, c as getDocFromServer, d as onSnapshot, f as orderBy, g as where, h as updateDoc, i as uploadBytes, j as signInWithCredential, k as sendEmailVerification, l as getDocs, m as setDoc, n as getStorage, o as deleteDoc, p as query, r as ref, s as getDoc, t as getDownloadURL, u as limit, v as Timestamp, w as GoogleAuthProvider, x as getFirestore, y as collection } from "./firebase-ClLwtwdv.js";
 // \0vite/modulepreload-polyfill.js
 (function polyfill() {
 	const relList = document.createElement("link").relList;
@@ -744,9 +744,9 @@ var CapacitorHttpPluginWeb = class extends WebPlugin {
 };
 registerPlugin("CapacitorHttp", { web: () => new CapacitorHttpPluginWeb() });
 // node_modules/@capacitor/app/dist/esm/index.js
-var App$1 = registerPlugin("App", { web: () => __vitePreload(() => import("./web-B5GgERXJ.js").then((m) => new m.AppWeb()), []) });
+var App$1 = registerPlugin("App", { web: () => __vitePreload(() => import("./web-Q8d0HRF4.js").then((m) => new m.AppWeb()), []) });
 // node_modules/@capacitor/browser/dist/esm/index.js
-var Browser = registerPlugin("Browser", { web: () => __vitePreload(() => import("./web-CubWLNdt.js").then((m) => new m.BrowserWeb()), []) });
+var Browser = registerPlugin("Browser", { web: () => __vitePreload(() => import("./web-C6jVE1eO.js").then((m) => new m.BrowserWeb()), []) });
 // node_modules/@capacitor/synapse/dist/synapse.mjs
 function s(t) {
 	t.CapacitorUtils.Synapse = new Proxy({}, { get(e, n) {
@@ -895,12 +895,12 @@ var Encoding;
 	Encoding["UTF16"] = "utf16";
 })(Encoding || (Encoding = {}));
 // node_modules/@capacitor/filesystem/dist/esm/index.js
-var Filesystem = registerPlugin("Filesystem", { web: () => __vitePreload(() => import("./web-C-n_ayne.js").then((m) => new m.FilesystemWeb()), []) });
+var Filesystem = registerPlugin("Filesystem", { web: () => __vitePreload(() => import("./web-S3GchC8b.js").then((m) => new m.FilesystemWeb()), []) });
 f();
 // node_modules/@capacitor/share/dist/esm/index.js
-var Share = registerPlugin("Share", { web: () => __vitePreload(() => import("./web-DbpJtBf4.js").then((m) => new m.ShareWeb()), []) });
+var Share = registerPlugin("Share", { web: () => __vitePreload(() => import("./web-BWYXoF7P.js").then((m) => new m.ShareWeb()), []) });
 // node_modules/@capacitor/splash-screen/dist/esm/index.js
-var SplashScreen = registerPlugin("SplashScreen", { web: () => __vitePreload(() => import("./web-CswPkPxE.js").then((m) => new m.SplashScreenWeb()), []) });
+var SplashScreen = registerPlugin("SplashScreen", { web: () => __vitePreload(() => import("./web-sIj_2TxK.js").then((m) => new m.SplashScreenWeb()), []) });
 // node_modules/@capacitor/status-bar/dist/esm/definitions.js
 var Style;
 (function(Style) {
@@ -951,6 +951,8 @@ var Animation;
 })(Animation || (Animation = {}));
 // node_modules/@capacitor/status-bar/dist/esm/index.js
 var StatusBar = registerPlugin("StatusBar");
+// src/lib/native.ts
+var ANDROID_AUTH_REDIRECT_URL = "com.nemvia.app://auth-callback";
 var DEFAULT_REMOTE_API_BASE = "https://nemvia-app.onrender.com";
 function isNativeApp() {
 	try {
@@ -963,6 +965,9 @@ function getApiBaseUrl() {
 	const configured = "postgresql://postgres:[YOUR-PASSWORD]@db.lurvkowyzgjhdugmixej.supabase.co:5432/postgres".trim().replace(/\/+$/, "");
 	if (isNativeApp()) return configured || DEFAULT_REMOTE_API_BASE;
 	return configured;
+}
+function getRemoteAppBaseUrl() {
+	return "postgresql://postgres:[YOUR-PASSWORD]@db.lurvkowyzgjhdugmixej.supabase.co:5432/postgres".trim().replace(/\/+$/, "") || DEFAULT_REMOTE_API_BASE;
 }
 function resolveApiUrl(path) {
 	if (/^https?:\/\//i.test(path)) return path;
@@ -1084,6 +1089,24 @@ function initNativeAndroidShell(options) {
 	App$1.addListener("appUrlOpen", async ({ url }) => {
 		if (url.startsWith("com.nemvia.app://auth-callback")) {
 			await Browser.close().catch(() => {});
+			try {
+				const hashIdx = url.indexOf("#");
+				const queryIdx = url.indexOf("?");
+				const rawParams = hashIdx >= 0 ? url.slice(hashIdx + 1) : queryIdx >= 0 ? url.slice(queryIdx + 1) : "";
+				const params = new URLSearchParams(rawParams);
+				const idToken = params.get("id_token") || "";
+				const accessToken = params.get("access_token") || "";
+				const role = params.get("role") || "";
+				if (idToken || accessToken) {
+					const payload = {
+						idToken,
+						accessToken,
+						role
+					};
+					window.__nemviaPendingNativeOAuth = payload;
+					window.dispatchEvent(new CustomEvent("nemvia:native-oauth", { detail: payload }));
+				}
+			} catch {}
 			options.onAuthDeepLink?.("signed_in");
 		}
 	}).then((handle) => {
@@ -1403,7 +1426,7 @@ var Weekday;
 	Weekday[Weekday["Saturday"] = 7] = "Saturday";
 })(Weekday || (Weekday = {}));
 // node_modules/@capacitor/local-notifications/dist/esm/index.js
-var LocalNotifications = registerPlugin("LocalNotifications", { web: () => __vitePreload(() => import("./web-tPSGFtPv.js").then((m) => new m.LocalNotificationsWeb()), []) });
+var LocalNotifications = registerPlugin("LocalNotifications", { web: () => __vitePreload(() => import("./web-D4eAAN_l.js").then((m) => new m.LocalNotificationsWeb()), []) });
 // src/lib/notifications.ts
 var SOUND_PREF_KEY = "nemvia-notif-sound-enabled";
 var DESKTOP_PREF_KEY = "nemvia-notif-desktop-enabled";
@@ -4850,7 +4873,44 @@ var AuthScreen = () => {
 	const [fullName, setFullName] = (0, import_react.useState)("");
 	const [email, setEmail] = (0, import_react.useState)("");
 	const [password, setPassword] = (0, import_react.useState)("");
+	const [mobileCallbackUrl, setMobileCallbackUrl] = (0, import_react.useState)(null);
+	const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+	const isMobileAuthHandoff = !isNativeApp() && searchParams?.get("mobile_auth") === "1";
+	const handoffRole = searchParams?.get("role") === "teacher" ? "teacher" : "student";
 	(0, import_react.useEffect)(() => {
+		if (isMobileAuthHandoff) setRole(handoffRole);
+	}, [isMobileAuthHandoff, handoffRole]);
+	(0, import_react.useEffect)(() => {
+		const completeNativeOAuth = async (detail) => {
+			if (!detail || !detail.idToken && !detail.accessToken) return;
+			setBusy(true);
+			setError(null);
+			try {
+				const chosenRole = (detail.role === "teacher" || detail.role === "student" ? detail.role : localStorage.getItem("nemvia-pending-role")) || role;
+				const credential = GoogleAuthProvider.credential(detail.idToken || null, detail.accessToken || null);
+				const cred = await signInWithCredential(auth, credential);
+				if (cred?.user) {
+					localStorage.removeItem("nemvia-pending-role");
+					await ensureOwnProfile(cred.user, chosenRole);
+				}
+			} catch (err) {
+				setError(arabicAuthError(err));
+			} finally {
+				setBusy(false);
+			}
+		};
+		const win = window;
+		if (win.__nemviaPendingNativeOAuth) {
+			const pending = win.__nemviaPendingNativeOAuth;
+			delete win.__nemviaPendingNativeOAuth;
+			completeNativeOAuth(pending);
+		}
+		const onNativeOAuth = (ev) => {
+			const detail = ev.detail;
+			delete win.__nemviaPendingNativeOAuth;
+			completeNativeOAuth(detail);
+		};
+		window.addEventListener("nemvia:native-oauth", onNativeOAuth);
 		getRedirectResult(auth).then(async (res) => {
 			if (res?.user && res.user.emailVerified) {
 				const pending = localStorage.getItem("nemvia-pending-role");
@@ -4858,12 +4918,57 @@ var AuthScreen = () => {
 				await ensureOwnProfile(res.user, pending || void 0);
 			}
 		}).catch((err) => setError(arabicAuthError(err)));
-	}, []);
+		return () => {
+			window.removeEventListener("nemvia:native-oauth", onNativeOAuth);
+		};
+	}, [role]);
+	const completeHandoffGoogle = async () => {
+		setError(null);
+		setBusy(true);
+		try {
+			const cred = await signInWithPopup(auth, googleProvider);
+			const oauthCred = GoogleAuthProvider.credentialFromResult(cred);
+			const idToken = oauthCred?.idToken || "";
+			const accessToken = oauthCred?.accessToken || "";
+			if (!idToken && !accessToken) {
+				setError("تعذّر استلام رمز المصادقة من Google. حاول مجدداً.");
+				return;
+			}
+			const params = new URLSearchParams();
+			if (idToken) params.set("id_token", idToken);
+			if (accessToken) params.set("access_token", accessToken);
+			params.set("role", handoffRole);
+			const targetUrl = `${ANDROID_AUTH_REDIRECT_URL}#${params.toString()}`;
+			setMobileCallbackUrl(targetUrl);
+			window.location.href = targetUrl;
+		} catch (err) {
+			setError(arabicAuthError(err));
+		} finally {
+			setBusy(false);
+		}
+	};
 	const signInGoogle = async () => {
 		setError(null);
 		setInfoMsg(null);
 		if (!agreed) {
 			setError("يجب الموافقة على شروط الاستخدام وسياسة الخصوصية للمتابعة.");
+			return;
+		}
+		if (isNativeApp()) {
+			setBusy(true);
+			try {
+				localStorage.setItem("nemvia-pending-role", role);
+				const handoffUrl = `${getRemoteAppBaseUrl()}/?mobile_auth=1&role=${encodeURIComponent(role)}`;
+				await Browser.open({
+					url: handoffUrl,
+					toolbarColor: "#0f233a"
+				});
+				setInfoMsg("أكمل تسجيل الدخول في المتصفح المفتوح وسيتم إعادتك تلقائياً للتطبيق.");
+			} catch (err) {
+				setError(arabicAuthError(err));
+			} finally {
+				setBusy(false);
+			}
 			return;
 		}
 		setBusy(true);
@@ -4919,6 +5024,47 @@ var AuthScreen = () => {
 			setBusy(false);
 		}
 	};
+	if (isMobileAuthHandoff) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+		className: "min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 font-['Cairo',sans-serif]",
+		dir: "rtl",
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 text-center",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+					className: "w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#0f233a] to-[#1677c7] text-white flex items-center justify-center shadow-md",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GraduationCap, { className: "w-7 h-7" })
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "space-y-1",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
+						className: "text-xl font-black text-slate-900",
+						children: "تسجيل الدخول لتطبيق NEMVIA"
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+						className: "text-xs text-slate-500",
+						children: ["الدور المختار: ", /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: "font-bold text-[#1677c7]",
+							children: handoffRole === "teacher" ? "معلم" : "طالب"
+						})]
+					})]
+				}),
+				error && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "p-3 bg-rose-50 text-rose-800 rounded-xl border border-rose-200 flex items-start gap-2 text-xs font-bold text-right",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleAlert, { className: "w-4 h-4 shrink-0 mt-0.5" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: error })]
+				}),
+				!mobileCallbackUrl ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+					type: "button",
+					disabled: busy,
+					onClick: completeHandoffGoogle,
+					className: "w-full min-h-[48px] py-3.5 px-4 bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-60 text-white font-black rounded-xl text-sm flex items-center justify-center gap-2 shadow-md cursor-pointer",
+					children: [busy ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "w-4 h-4 animate-spin" }) : null, /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "اضغط هنا لتسجيل الدخول بحساب Google" })]
+				}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("a", {
+					href: mobileCallbackUrl,
+					className: "w-full min-h-[48px] py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-sm flex items-center justify-center gap-2 shadow-md",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ExternalLink, { className: "w-4 h-4" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "تم التحقق — اضغط للعودة لتطبيق NEMVIA" })]
+				})
+			]
+		})
+	});
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 		className: "min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 font-['Cairo',sans-serif]",
 		dir: "rtl",
@@ -5235,7 +5381,7 @@ var ReportModal = ({ target, onClose, onSubmit }) => {
 	});
 };
 // node_modules/@capacitor/network/dist/esm/index.js
-var Network = registerPlugin("Network", { web: () => __vitePreload(() => import("./web-DGdRUu97.js").then((m) => new m.NetworkWeb()), []) });
+var Network = registerPlugin("Network", { web: () => __vitePreload(() => import("./web-BnVRZqHI.js").then((m) => new m.NetworkWeb()), []) });
 // src/components/pwa/OfflineIndicator.tsx
 function useOnlineStatus() {
 	const [isOnline, setIsOnline] = (0, import_react.useState)(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -5607,20 +5753,20 @@ var PullToRefresh = ({ onRefresh, enabled = true, children }) => {
 	});
 };
 // src/App.tsx
-var ClassesView = (0, import_react.lazy)(() => __vitePreload(() => import("./ClassesView-DeAE4LYe.js").then((m) => ({ default: m.ClassesView })), __vite__mapDeps([0,1,2,3])));
-var CoursesView = (0, import_react.lazy)(() => __vitePreload(() => import("./CoursesView-BiJOYvxk.js").then((m) => ({ default: m.CoursesView })), __vite__mapDeps([4,1,2,5,6,3])));
-var AssignmentsView = (0, import_react.lazy)(() => __vitePreload(() => import("./AssignmentsView-QN2ZBdX_.js").then((m) => ({ default: m.AssignmentsView })), __vite__mapDeps([7,1,2,5,3])));
+var ClassesView = (0, import_react.lazy)(() => __vitePreload(() => import("./ClassesView-B8bowTQ1.js").then((m) => ({ default: m.ClassesView })), __vite__mapDeps([0,1,2,3])));
+var CoursesView = (0, import_react.lazy)(() => __vitePreload(() => import("./CoursesView-CzeXxgtZ.js").then((m) => ({ default: m.CoursesView })), __vite__mapDeps([4,1,2,5,6,3])));
+var AssignmentsView = (0, import_react.lazy)(() => __vitePreload(() => import("./AssignmentsView-CXgiryfR.js").then((m) => ({ default: m.AssignmentsView })), __vite__mapDeps([7,1,2,5,3])));
 var CommunityView = (0, import_react.lazy)(() => __vitePreload(() => import("./CommunityView-DQm37424.js").then((m) => ({ default: m.CommunityView })), __vite__mapDeps([8,1,2,3])));
-var LiveClassroomView = (0, import_react.lazy)(() => __vitePreload(() => import("./LiveClassroomView-D0C5EpPk.js").then((m) => ({ default: m.LiveClassroomView })), __vite__mapDeps([9,1,2,3])));
+var LiveClassroomView = (0, import_react.lazy)(() => __vitePreload(() => import("./LiveClassroomView-sWN8sKbK.js").then((m) => ({ default: m.LiveClassroomView })), __vite__mapDeps([9,1,2,3])));
 var MessagesView = (0, import_react.lazy)(() => __vitePreload(() => import("./MessagesView-CiK5uH0m.js").then((m) => ({ default: m.MessagesView })), __vite__mapDeps([10,1,2,3])));
-var StudyToolsView = (0, import_react.lazy)(() => __vitePreload(() => import("./StudyToolsView-D6CcMMpL.js").then((m) => ({ default: m.StudyToolsView })), __vite__mapDeps([11,1,2,5,3])));
-var AIStudioView = (0, import_react.lazy)(() => __vitePreload(() => import("./AIStudioView-N3PHT2O_.js").then((m) => ({ default: m.AIStudioView })), __vite__mapDeps([12,1,2,5,3])));
+var StudyToolsView = (0, import_react.lazy)(() => __vitePreload(() => import("./StudyToolsView-BqO-RRMz.js").then((m) => ({ default: m.StudyToolsView })), __vite__mapDeps([11,1,2,5,3])));
+var AIStudioView = (0, import_react.lazy)(() => __vitePreload(() => import("./AIStudioView-D2dMz7R0.js").then((m) => ({ default: m.AIStudioView })), __vite__mapDeps([12,1,2,5,3])));
 var AdminView = (0, import_react.lazy)(() => __vitePreload(() => import("./AdminView-CRYUC0iy.js").then((m) => ({ default: m.AdminView })), __vite__mapDeps([13,1,2,3])));
-var ProfileView = (0, import_react.lazy)(() => __vitePreload(() => import("./ProfileView-CG1j2L7z.js").then((m) => ({ default: m.ProfileView })), __vite__mapDeps([14,1,2,15,3])));
+var ProfileView = (0, import_react.lazy)(() => __vitePreload(() => import("./ProfileView-CYVeIy5O.js").then((m) => ({ default: m.ProfileView })), __vite__mapDeps([14,1,2,15,3])));
 var LegalView = (0, import_react.lazy)(() => __vitePreload(() => Promise.resolve().then(() => LegalView_exports).then((m) => ({ default: m.LegalView })), void 0));
-var SettingsView = (0, import_react.lazy)(() => __vitePreload(() => import("./SettingsView-7wkgzTM3.js").then((m) => ({ default: m.SettingsView })), __vite__mapDeps([16,1,2,6,3])));
-var CalendarView = (0, import_react.lazy)(() => __vitePreload(() => import("./CalendarView-DvfzGtTh.js").then((m) => ({ default: m.CalendarView })), __vite__mapDeps([17,1,2,3])));
-var GradebookView = (0, import_react.lazy)(() => __vitePreload(() => import("./GradebookView-D_9TqkD0.js").then((m) => ({ default: m.GradebookView })), __vite__mapDeps([18,1,2,3])));
+var SettingsView = (0, import_react.lazy)(() => __vitePreload(() => import("./SettingsView-CSx0au6Y.js").then((m) => ({ default: m.SettingsView })), __vite__mapDeps([16,1,2,6,3])));
+var CalendarView = (0, import_react.lazy)(() => __vitePreload(() => import("./CalendarView-raaFqbeu.js").then((m) => ({ default: m.CalendarView })), __vite__mapDeps([17,1,2,3])));
+var GradebookView = (0, import_react.lazy)(() => __vitePreload(() => import("./GradebookView-yXT0n4PV.js").then((m) => ({ default: m.GradebookView })), __vite__mapDeps([18,1,2,3])));
 var EMPTY = {
 	classes: [],
 	schools: [],
@@ -6226,6 +6372,7 @@ function App() {
 			})
 		});
 	}
+	if (!isNativeApp() && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mobile_auth") === "1") return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AuthScreen, {});
 	if (!authReady) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 		className: "min-h-[100dvh] flex items-center justify-center bg-slate-50",
 		children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "w-8 h-8 animate-spin text-[#1677c7]" })

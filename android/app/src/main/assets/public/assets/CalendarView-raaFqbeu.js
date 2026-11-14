@@ -1,6 +1,6 @@
 import { r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { Ct as Clock, Lt as Calendar, Mt as ChevronLeft, P as Radio, Yt as require_react, _t as FileCheck, jt as ChevronRight, kt as CircleCheck, vt as ExternalLink } from "./icons-y6mUmdUg.js";
-import { d as useAppSettings } from "./index-Du_wEuvA.js";
+import { d as useAppSettings } from "./index-CVEKnASN.js";
 import { t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
 // src/components/views/CalendarView.tsx
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);

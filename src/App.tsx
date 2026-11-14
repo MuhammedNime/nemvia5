@@ -578,6 +578,8 @@ export default function App() {
   }
 
   /* ---------------- Gates ---------------- */
+  const isMobileHandoff = !isNativeApp() && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mobile_auth') === '1';
+  if (isMobileHandoff) return <AuthScreen />;
   if (!authReady) {
     return <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 animate-spin text-[#1677c7]" /></div>;
   }

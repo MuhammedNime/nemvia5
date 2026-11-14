@@ -1,4 +1,4 @@
-import { v as WebPlugin } from "./index-Du_wEuvA.js";
+import { v as WebPlugin } from "./index-CVEKnASN.js";
 // node_modules/@capacitor/splash-screen/dist/esm/web.js
 var SplashScreenWeb = class extends WebPlugin {
 	async show(_options) {}

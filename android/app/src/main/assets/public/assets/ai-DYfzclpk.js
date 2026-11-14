@@ -1,4 +1,4 @@
-import { m as resolveApiUrl, r as auth } from "./index-Du_wEuvA.js";
+import { m as resolveApiUrl, r as auth } from "./index-CVEKnASN.js";
 // src/lib/ai.ts
 async function postAI(path, payload) {
 	const headers = { "Content-Type": "application/json" };

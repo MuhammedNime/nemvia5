@@ -1,6 +1,6 @@
 import { r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { At as CircleAlert, D as Send, Nt as Check, Ot as CircleQuestionMark, Q as LoaderCircle, Rt as Calculator, Ut as BookOpen, Yt as require_react, gt as FileText, m as Trash2, xt as Copy, y as Sparkles } from "./icons-y6mUmdUg.js";
-import { t as askTutor } from "./ai-BduQZiAQ.js";
+import { t as askTutor } from "./ai-DYfzclpk.js";
 import { t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
 // src/components/views/AIStudioView.tsx
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);

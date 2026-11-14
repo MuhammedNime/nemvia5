@@ -39,6 +39,15 @@ export function getApiBaseUrl(): string {
   return configured;
 }
 
+export function getRemoteAppBaseUrl(): string {
+  const configured = (
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.VITE_APP_URL ||
+    ''
+  ).trim().replace(/\/+$/, '');
+  return configured || DEFAULT_REMOTE_API_BASE;
+}
+
 export function resolveApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   const normalized = path.startsWith('/') ? path : `/${path}`;
@@ -198,6 +207,26 @@ export function initNativeAndroidShell(options: {
   CapApp.addListener('appUrlOpen', async ({ url }) => {
     if (url.startsWith(ANDROID_AUTH_REDIRECT_URL)) {
       await Browser.close().catch(() => {});
+      try {
+        const hashIdx = url.indexOf('#');
+        const queryIdx = url.indexOf('?');
+        const rawParams = hashIdx >= 0
+          ? url.slice(hashIdx + 1)
+          : queryIdx >= 0
+            ? url.slice(queryIdx + 1)
+            : '';
+        const params = new URLSearchParams(rawParams);
+        const idToken = params.get('id_token') || '';
+        const accessToken = params.get('access_token') || '';
+        const role = params.get('role') || '';
+        if (idToken || accessToken) {
+          const payload = { idToken, accessToken, role };
+          (window as unknown as { __nemviaPendingNativeOAuth?: typeof payload }).__nemviaPendingNativeOAuth = payload;
+          window.dispatchEvent(new CustomEvent('nemvia:native-oauth', { detail: payload }));
+        }
+      } catch {
+        /* ignore malformed callback */
+      }
       options.onAuthDeepLink?.('signed_in');
     }
   }).then(handle => {
