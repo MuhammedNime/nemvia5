@@ -1,0 +1,69 @@
+name: Build NEMVIA Android AAB & APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Configure Release Signing
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/nemvia-release.keystore
+            cat > android/keystore.properties <<EOF
+          storeFile=nemvia-release.keystore
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+          else
+            keytool -genkeypair -v -keystore android/app/nemvia-release.keystore \
+              -alias nemvia -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass nemvia2026! -keypass nemvia2026! \
+              -dname "CN=NEMVIA Education, OU=Mobile, O=NEMVIA, L=Riyadh, S=Riyadh, C=SA"
+            cat > android/keystore.properties <<EOF
+          storeFile=nemvia-release.keystore
+          storePassword=nemvia2026!
+          keyAlias=nemvia
+          keyPassword=nemvia2026!
+          EOF
+          fi
+
+      - name: Install dependencies & sync Capacitor Android
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://ais-pre-wdr7463xhinhkzg4ohx2pf-472107884917.europe-west2.run.app' }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          npm ci
+          npm run cap:sync
+
+      - name: Build signed Release AAB & APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleRelease --no-daemon
+
+      - name: Upload AAB & APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nemvia-android-release
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/mapping/release/mapping.txt

@@ -1,0 +1,469 @@
+{
+  "entities": {
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Private user account PII isolated from public profiles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "created_at", "updated_at"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted administrator marker document.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "created_at"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "Public educational profile without PII.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 24 },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "bio": { "type": "string", "maxLength": 500 },
+        "avatar_url": { "type": "string", "maxLength": 2000 },
+        "role": { "type": "string", "enum": ["student", "teacher", "admin"] },
+        "visibility": { "type": "string", "enum": ["public", "private"] },
+        "points": { "type": "integer" },
+        "streak_days": { "type": "integer" },
+        "last_active_date": { "type": "string", "maxLength": 20 },
+        "is_suspended": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "display_name", "role", "visibility", "points", "streak_days", "is_suspended", "created_at", "updated_at"]
+    },
+    "ClassSpace": {
+      "title": "ClassSpace",
+      "description": "Classroom, study group, school, or ministry container.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "subject": { "type": "string", "maxLength": 120 },
+        "grade_level": { "type": "string", "maxLength": 120 },
+        "join_code": { "type": "string", "minLength": 4, "maxLength": 16 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "class_type": { "type": "string", "enum": ["class", "study"] },
+        "color_theme": { "type": "string", "maxLength": 250 },
+        "is_archived": { "type": "boolean" },
+        "members_count": { "type": "integer" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacher_id", "title", "join_code", "class_type", "is_archived", "created_at"]
+    },
+    "ClassCode": {
+      "title": "ClassCode",
+      "description": "Lookup index mapping join code to class ID.",
+      "type": "object",
+      "properties": {
+        "join_code": { "type": "string", "minLength": 4, "maxLength": 16 },
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "is_archived": { "type": "boolean" }
+      },
+      "required": ["join_code", "class_id", "teacher_id", "is_archived"]
+    },
+    "ClassMember": {
+      "title": "ClassMember",
+      "description": "Membership record linking a user to a class space.",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "member_role": { "type": "string", "enum": ["student", "assistant"] },
+        "joined_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "user_id", "member_role", "joined_at"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "Curriculum lesson published inside a class.",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "content": { "type": "string", "maxLength": 20000 },
+        "video_url": { "type": "string", "maxLength": 2000 },
+        "duration": { "type": "string", "maxLength": 40 },
+        "attachment_url": { "type": "string", "maxLength": 2000 },
+        "attachment_name": { "type": "string", "maxLength": 255 },
+        "position": { "type": "integer" },
+        "published_at": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "teacher_id", "title", "content", "position", "created_at"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Homework or task assigned by a teacher.",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "instructions": { "type": "string", "maxLength": 10000 },
+        "due_at": { "type": "string", "maxLength": 64 },
+        "total_points": { "type": "integer" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "teacher_id", "title", "total_points", "created_at"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Student submission for an assignment.",
+      "type": "object",
+      "properties": {
+        "assignment_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "class_id": { "type": "string", "maxLength": 128 },
+        "teacher_id": { "type": "string", "maxLength": 128 },
+        "student_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "answer_text": { "type": "string", "maxLength": 15000 },
+        "attachment_url": { "type": "string", "maxLength": 2000 },
+        "submitted_at": { "type": "string", "format": "date-time" },
+        "grade": { "type": "number" },
+        "teacher_feedback": { "type": "string", "maxLength": 4000 }
+      },
+      "required": ["assignment_id", "student_id", "answer_text", "submitted_at"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Published quiz metadata and questions (without answer keys).",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "time_limit_minutes": { "type": "integer" },
+        "is_published": { "type": "boolean" },
+        "questions": { "type": "array" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "teacher_id", "title", "time_limit_minutes", "is_published", "questions", "created_at"]
+    },
+    "QuizAnswerKey": {
+      "title": "QuizAnswerKey",
+      "description": "Answer key document protected until teacher review or attempt submission.",
+      "type": "object",
+      "properties": {
+        "quiz_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "entries": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["quiz_id", "teacher_id", "entries", "created_at"]
+    },
+    "QuizAttempt": {
+      "title": "QuizAttempt",
+      "description": "Student quiz attempt record and teacher grading feedback.",
+      "type": "object",
+      "properties": {
+        "quiz_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "maxLength": 128 },
+        "student_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "answers": { "type": "object" },
+        "score": { "type": "number" },
+        "auto_graded": { "type": "boolean" },
+        "needs_manual_grading": { "type": "boolean" },
+        "teacher_feedback": { "type": "string", "maxLength": 4000 },
+        "question_feedback": { "type": "object" },
+        "submitted_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["quiz_id", "student_id", "answers", "score", "submitted_at"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Academic community feed post.",
+      "type": "object",
+      "properties": {
+        "author_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "body": { "type": "string", "maxLength": 10000 },
+        "category": { "type": "string", "enum": ["all", "questions", "notes", "announcements"] },
+        "media_url": { "type": "string", "maxLength": 2000 },
+        "media_type": { "type": "string", "enum": ["image", "video", "document"] },
+        "visibility": { "type": "string", "enum": ["public", "followers", "private"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["author_id", "body", "category", "visibility", "created_at", "updated_at"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Comment on a community post.",
+      "type": "object",
+      "properties": {
+        "post_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "author_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 3000 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["post_id", "author_id", "body", "created_at"]
+    },
+    "PostLike": {
+      "title": "PostLike",
+      "description": "Like marker linking user and post.",
+      "type": "object",
+      "properties": {
+        "post_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["post_id", "user_id", "created_at"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "24-hour academic status story.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "bg_gradient": { "type": "string", "maxLength": 120 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "body", "bg_gradient", "created_at", "expires_at"]
+    },
+    "LiveSession": {
+      "title": "LiveSession",
+      "description": "Scheduled or active live classroom session.",
+      "type": "object",
+      "properties": {
+        "host_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "class_id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "meeting_url": { "type": "string", "maxLength": 2000 },
+        "starts_at": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["scheduled", "live", "ended", "cancelled"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["host_id", "title", "starts_at", "status", "created_at"]
+    },
+    "LiveRoomMessage": {
+      "title": "LiveRoomMessage",
+      "description": "Chat message inside a live classroom session.",
+      "type": "object",
+      "properties": {
+        "room_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sender_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sender_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "is_teacher": { "type": "boolean" },
+        "time": { "type": "string", "maxLength": 32 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["room_id", "sender_id", "sender_name", "text", "created_at"]
+    },
+    "LiveRoomPresence": {
+      "title": "LiveRoomPresence",
+      "description": "Active participant presence inside a live room.",
+      "type": "object",
+      "properties": {
+        "room_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "role": { "type": "string", "enum": ["student", "teacher", "admin"] },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["room_id", "user_id", "name", "role", "updated_at"]
+    },
+    "DirectMessage": {
+      "title": "DirectMessage",
+      "description": "Private 1-on-1 direct message between two users.",
+      "type": "object",
+      "properties": {
+        "sender_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "recipient_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "participants": { "type": "array" },
+        "body": { "type": "string", "maxLength": 5000 },
+        "attachment_url": { "type": "string", "maxLength": 2000 },
+        "attachment_name": { "type": "string", "maxLength": 255 },
+        "read_at": { "type": "string", "maxLength": 64 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sender_id", "recipient_id", "participants", "body", "created_at"]
+    },
+    "ClassMessage": {
+      "title": "ClassMessage",
+      "description": "Group message inside a class or organization channel.",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sender_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "body": { "type": "string", "maxLength": 5000 },
+        "attachment_url": { "type": "string", "maxLength": 2000 },
+        "attachment_name": { "type": "string", "maxLength": 255 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "sender_id", "body", "created_at"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "User-targeted notification.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "kind": { "type": "string", "enum": ["academic", "social", "live", "grade"] },
+        "payload": { "type": "object" },
+        "read_at": { "type": "string", "maxLength": 64 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "kind", "payload", "created_at"]
+    },
+    "ContentReport": {
+      "title": "ContentReport",
+      "description": "Safety/moderation report submitted by a user.",
+      "type": "object",
+      "properties": {
+        "reporter_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "target_type": { "type": "string", "enum": ["post", "profile", "comment", "message"] },
+        "target_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "details": { "type": "string", "maxLength": 2000 },
+        "snapshot": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["open", "reviewing", "resolved", "dismissed"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reporter_id", "target_type", "target_id", "reason", "status", "created_at"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "Accepted follow relationship.",
+      "type": "object",
+      "properties": {
+        "follower_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "followed_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["follower_id", "followed_id", "created_at"]
+    },
+    "FollowRequest": {
+      "title": "FollowRequest",
+      "description": "Pending or processed follow request for private profiles.",
+      "type": "object",
+      "properties": {
+        "requester_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "target_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requester_id", "target_id", "status", "created_at"]
+    }
+  },
+  "firestore": {
+    "/users_private/{userId}": {
+      "schema": { "$ref": "#/entities/UserPrivate" },
+      "description": "Private PII records isolated per user."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Admin role registry."
+    },
+    "/profiles/{userId}": {
+      "schema": { "$ref": "#/entities/Profile" },
+      "description": "Public user profiles (no PII)."
+    },
+    "/classes/{classId}": {
+      "schema": { "$ref": "#/entities/ClassSpace" },
+      "description": "Classes, study groups, schools, and ministries."
+    },
+    "/class_codes/{joinCode}": {
+      "schema": { "$ref": "#/entities/ClassCode" },
+      "description": "Join code index for secure class enrollment."
+    },
+    "/class_members/{memberId}": {
+      "schema": { "$ref": "#/entities/ClassMember" },
+      "description": "Class membership mappings."
+    },
+    "/lessons/{lessonId}": {
+      "schema": { "$ref": "#/entities/Lesson" },
+      "description": "Published lessons."
+    },
+    "/assignments/{assignmentId}": {
+      "schema": { "$ref": "#/entities/Assignment" },
+      "description": "Assignments created by teachers."
+    },
+    "/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/Submission" },
+      "description": "Student assignment submissions."
+    },
+    "/quizzes/{quizId}": {
+      "schema": { "$ref": "#/entities/Quiz" },
+      "description": "Quizzes without answer keys."
+    },
+    "/quiz_answer_keys/{quizId}": {
+      "schema": { "$ref": "#/entities/QuizAnswerKey" },
+      "description": "Protected quiz answer keys."
+    },
+    "/quiz_attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/QuizAttempt" },
+      "description": "Student quiz attempts."
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Academic community posts."
+    },
+    "/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/Comment" },
+      "description": "Post comments."
+    },
+    "/post_likes/{likeId}": {
+      "schema": { "$ref": "#/entities/PostLike" },
+      "description": "Post likes."
+    },
+    "/stories/{storyId}": {
+      "schema": { "$ref": "#/entities/Story" },
+      "description": "24h academic stories."
+    },
+    "/live_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/LiveSession" },
+      "description": "Scheduled and live sessions."
+    },
+    "/live_room_messages/{msgId}": {
+      "schema": { "$ref": "#/entities/LiveRoomMessage" },
+      "description": "Live classroom chat messages."
+    },
+    "/live_room_presence/{presenceId}": {
+      "schema": { "$ref": "#/entities/LiveRoomPresence" },
+      "description": "Live classroom presence."
+    },
+    "/direct_messages/{msgId}": {
+      "schema": { "$ref": "#/entities/DirectMessage" },
+      "description": "Private 1-on-1 direct messages."
+    },
+    "/class_messages/{msgId}": {
+      "schema": { "$ref": "#/entities/ClassMessage" },
+      "description": "Class and organization channel messages."
+    },
+    "/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/NotificationItem" },
+      "description": "User notifications."
+    },
+    "/content_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ContentReport" },
+      "description": "Moderation reports."
+    },
+    "/follows/{followId}": {
+      "schema": { "$ref": "#/entities/Follow" },
+      "description": "Follow graph edges."
+    },
+    "/follow_requests/{reqId}": {
+      "schema": { "$ref": "#/entities/FollowRequest" },
+      "description": "Follow requests for private profiles."
+    }
+  }
+}
