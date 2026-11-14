@@ -1,6 +1,6 @@
 import { r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { A as RotateCw, Bt as BrainCircuit, Ct as Clock, F as Printer, I as Plus, Jt as Activity, Kt as Award, L as Play, Q as LoaderCircle, Yt as require_react, ft as Flame, j as RotateCcw, m as Trash2, n as X, rt as Layers, t as Zap, y as Sparkles, z as Pause } from "./icons-y6mUmdUg.js";
-import { i as generateFlashcardsAI } from "./ai-CHroX9Wo.js";
+import { i as generateFlashcardsAI } from "./ai-BduQZiAQ.js";
 import { t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
 // src/components/views/StudyToolsView.tsx
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);

@@ -185,14 +185,10 @@ export function initNativeAndroidShell(options: {
   };
   document.addEventListener('click', onDocumentClick, true);
 
-  CapApp.addListener('backButton', ({ canGoBack }) => {
+  CapApp.addListener('backButton', () => {
     const handled = options.onBackButton();
     if (!handled) {
-      if (canGoBack && window.history.length > 1) {
-        window.history.back();
-      } else {
-        void CapApp.exitApp();
-      }
+      void CapApp.exitApp();
     }
   }).then(handle => {
     if (disposed) void handle.remove();

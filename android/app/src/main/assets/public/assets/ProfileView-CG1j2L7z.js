@@ -1,7 +1,7 @@
 import { r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { It as Camera, Q as LoaderCircle, X as LogOut, Yt as require_react, Z as Lock, ct as Globe, f as TriangleAlert, ft as Flame, g as Star, m as Trash2 } from "./icons-y6mUmdUg.js";
 import { P as updatePassword } from "./firebase-Cw5EUFwp.js";
-import { r as auth } from "./index-CPo3jDak.js";
+import { r as auth } from "./index-Du_wEuvA.js";
 import { t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
 // src/components/views/ProfileView.tsx
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);

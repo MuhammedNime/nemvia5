@@ -1,12 +1,17 @@
-// Sound chime synthesizer (Web Audio API) + Browser Notification helper for NEMVIA
+// Sound chime synthesizer (Web Audio API) + Browser & Native Android Notification helper for NEMVIA
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { isNativeApp } from './native';
 
 export type ChimeKind = 'message' | 'alert' | 'grade';
 
 const SOUND_PREF_KEY = 'nemvia-notif-sound-enabled';
 const DESKTOP_PREF_KEY = 'nemvia-notif-desktop-enabled';
+const NATIVE_CHANNEL_ID = 'nemvia-alerts';
 
 let sharedAudioCtx: AudioContext | null = null;
 let unlockBound = false;
+let nativeNotifInitialized = false;
+let nativeNotifSeq = 100;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -79,6 +84,46 @@ function getSelectedTone(): 'classic' | 'soft' | 'bright' {
     /* ignore */
   }
   return 'classic';
+}
+
+export async function initNativeNotifications(): Promise<void> {
+  if (!isNativeApp() || nativeNotifInitialized) return;
+  nativeNotifInitialized = true;
+  try {
+    await LocalNotifications.createChannel({
+      id: NATIVE_CHANNEL_ID,
+      name: 'إشعارات NEMVIA',
+      description: 'تنبيهات الرسائل والواجبات والاختبارات والحصص المباشرة',
+      importance: 4,
+      visibility: 1,
+      vibration: true,
+    });
+  } catch {
+    /* channel creation optional on older OS */
+  }
+
+  try {
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display === 'prompt' || perm.display === 'prompt-with-rationale') {
+      const res = await LocalNotifications.requestPermissions();
+      if (res.display === 'granted') setDesktopNotifEnabled(true);
+    } else if (perm.display === 'granted') {
+      setDesktopNotifEnabled(true);
+    }
+  } catch {
+    /* ignore permission errors */
+  }
+
+  try {
+    await LocalNotifications.addListener('localNotificationActionPerformed', event => {
+      const targetSection = event?.notification?.extra?.targetSection;
+      if (typeof targetSection === 'string' && targetSection && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('nemvia:open-section', { detail: { targetSection } }));
+      }
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 export function playNotificationChime(
@@ -164,6 +209,18 @@ export function playNotificationChime(
 }
 
 export async function requestBrowserNotificationPermission(): Promise<NotificationPermission | 'unsupported'> {
+  if (isNativeApp()) {
+    try {
+      const perm = await LocalNotifications.requestPermissions();
+      if (perm.display === 'granted') {
+        setDesktopNotifEnabled(true);
+        return 'granted';
+      }
+      return 'denied';
+    } catch {
+      return 'unsupported';
+    }
+  }
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   if (Notification.permission === 'granted') {
     setDesktopNotifEnabled(true);
@@ -174,16 +231,40 @@ export async function requestBrowserNotificationPermission(): Promise<Notificati
   return res;
 }
 
-export function showBrowserNotification(title: string, body: string, tag = 'nemvia-alert'): void {
+export function showBrowserNotification(
+  title: string,
+  body: string,
+  tag = 'nemvia-alert',
+  targetSection?: string,
+): void {
+  if (!isDesktopNotifEnabled()) return;
+
+  if (isNativeApp()) {
+    nativeNotifSeq = (nativeNotifSeq % 900000) + 1;
+    void LocalNotifications.schedule({
+      notifications: [
+        {
+          id: nativeNotifSeq,
+          title,
+          body,
+          channelId: NATIVE_CHANNEL_ID,
+          schedule: { at: new Date(Date.now() + 250) },
+          extra: { tag, targetSection },
+        },
+      ],
+    }).catch(() => {});
+    return;
+  }
+
   if (typeof window === 'undefined' || !('Notification' in window)) return;
-  if (!isDesktopNotifEnabled() || Notification.permission !== 'granted') return;
+  if (Notification.permission !== 'granted') return;
 
   const opts: NotificationOptions = {
     body,
     tag,
     dir: 'rtl',
     lang: 'ar',
-    silent: true, // نتولى الصوت بأنفسنا عبر Web Audio لتفادي التكرار
+    silent: true,
   };
 
   if (navigator.serviceWorker?.controller) {

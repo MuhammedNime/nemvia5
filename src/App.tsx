@@ -32,10 +32,11 @@ import { auth } from './lib/firebase';
 import * as api from './lib/api';
 import { AppData } from './lib/api';
 import { UI_COPY, useAppSettings } from './lib/settings';
-import { initNativeAndroidShell } from './lib/native';
+import { initNativeAndroidShell, isNativeApp } from './lib/native';
 import {
   bindAudioUnlock,
   ChimeKind,
+  initNativeNotifications,
   playNotificationChime,
   showBrowserNotification,
 } from './lib/notifications';
@@ -94,6 +95,13 @@ export default function App() {
     setActiveSectionRaw(prev => {
       if (prev === next) return prev;
       sectionHistoryRef.current = [...sectionHistoryRef.current.slice(-15), prev];
+      if (!isNativeApp() && prev === 'home' && next !== 'home' && typeof window !== 'undefined') {
+        try {
+          window.history.pushState({ nemviaHomeGuard: true }, '');
+        } catch {
+          /* ignore */
+        }
+      }
       return next;
     });
   }, []);
@@ -102,6 +110,24 @@ export default function App() {
 
   useEffect(() => {
     bindAudioUnlock();
+    void initNativeNotifications();
+
+    const onOpenSection = (ev: Event) => {
+      const target = (ev as CustomEvent<{ targetSection?: string }>).detail?.targetSection;
+      if (target) setActiveSection(target);
+    };
+    const onPopState = () => {
+      if (isNativeApp()) return;
+      const cur = uiStateRef.current;
+      if (cur.hasConfirm) { setConfirmState(null); return; }
+      if (cur.hasReport) { setReportTarget(null); return; }
+      if (cur.searchOpen) { setSearchOpen(false); return; }
+      if (cur.hubOpen) { setHubOpen(false); return; }
+      if (cur.activeSection !== 'home') {
+        setActiveSectionRaw('home');
+        sectionHistoryRef.current = [];
+      }
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -111,6 +137,8 @@ export default function App() {
     const onVisibility = () => {
       if (!document.hidden) void refreshRef.current();
     };
+    window.addEventListener('nemvia:open-section', onOpenSection);
+    window.addEventListener('popstate', onPopState);
     window.addEventListener('keydown', onKey);
     document.addEventListener('visibilitychange', onVisibility);
     const cleanupNative = initNativeAndroidShell({
@@ -122,12 +150,11 @@ export default function App() {
         if (cur.hasReport) { setReportTarget(null); return true; }
         if (cur.searchOpen) { setSearchOpen(false); return true; }
         if (cur.hubOpen) { setHubOpen(false); return true; }
-        if (sectionHistoryRef.current.length > 0) {
-          const previous = sectionHistoryRef.current.pop() || 'home';
-          setActiveSectionRaw(previous);
+        if (cur.activeSection !== 'home') {
+          sectionHistoryRef.current = [];
+          setActiveSectionRaw('home');
           return true;
         }
-        if (cur.activeSection !== 'home') { setActiveSectionRaw('home'); return true; }
         const now = Date.now();
         if (now - backExitTimeRef.current < 2000) return false;
         backExitTimeRef.current = now;
@@ -136,11 +163,13 @@ export default function App() {
       },
     });
     return () => {
+      window.removeEventListener('nemvia:open-section', onOpenSection);
+      window.removeEventListener('popstate', onPopState);
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
       cleanupNative();
     };
-  }, [notify]);
+  }, [notify, setActiveSection]);
 
   const seedSeenIds = useCallback((d: AppData) => {
     const s = seenIdsRef.current;
@@ -161,7 +190,7 @@ export default function App() {
     if (seenIdsRef.current.has(opts.id)) return;
     seenIdsRef.current.add(opts.id);
     playNotificationChime(opts.chime);
-    showBrowserNotification(opts.title, opts.body, opts.id);
+    showBrowserNotification(opts.title, opts.body, opts.id, opts.targetSection);
     setLiveAlert({ title: opts.title, body: opts.body, targetSection: opts.targetSection });
     window.clearTimeout(alertTimerRef.current);
     alertTimerRef.current = window.setTimeout(() => setLiveAlert(null), 6000);

@@ -1,4 +1,4 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/ClassesView-DGINM_9a.js","assets/rolldown-runtime-SbdDWaPq.js","assets/icons-y6mUmdUg.js","assets/react-vendor-CpCOhAWp.js","assets/CoursesView-D1rBXrgi.js","assets/ai-CHroX9Wo.js","assets/questionBank-CLFgLnk1.js","assets/AssignmentsView-DhKakbRj.js","assets/CommunityView-DQm37424.js","assets/LiveClassroomView-CnvqdWxB.js","assets/MessagesView-CiK5uH0m.js","assets/StudyToolsView-Dq_DffjQ.js","assets/AIStudioView-_JtZtG-b.js","assets/AdminView-CRYUC0iy.js","assets/ProfileView-DEv9cNG8.js","assets/firebase-Cw5EUFwp.js","assets/SettingsView-phEczHaq.js","assets/CalendarView-ByNzGvvQ.js","assets/GradebookView-S4cydqCV.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/ClassesView-DeAE4LYe.js","assets/rolldown-runtime-SbdDWaPq.js","assets/icons-y6mUmdUg.js","assets/react-vendor-CpCOhAWp.js","assets/CoursesView-BiJOYvxk.js","assets/ai-BduQZiAQ.js","assets/questionBank-CLFgLnk1.js","assets/AssignmentsView-QN2ZBdX_.js","assets/CommunityView-DQm37424.js","assets/LiveClassroomView-D0C5EpPk.js","assets/MessagesView-CiK5uH0m.js","assets/StudyToolsView-D6CcMMpL.js","assets/AIStudioView-N3PHT2O_.js","assets/AdminView-CRYUC0iy.js","assets/ProfileView-CG1j2L7z.js","assets/firebase-Cw5EUFwp.js","assets/SettingsView-7wkgzTM3.js","assets/CalendarView-DvfzGtTh.js","assets/GradebookView-D_9TqkD0.js"])))=>i.map(i=>d[i]);
 import { n as __exportAll, r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { n as require_client, t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
 import { A as RotateCw, At as CircleAlert, C as ShieldCheck, Dt as CircleUser, E as Settings, G as MessageSquare, Gt as BellRing, J as Mail, Kt as Award, Lt as Calendar, N as RefreshCw, Nt as Check, O as Search, P as Radio, Pt as CheckCheck, Q as LoaderCircle, Ut as BookOpen, Wt as Bell, X as LogOut, Y as MailCheck, Yt as require_react, Z as Lock, _t as FileCheck, a as Volume2, b as Smartphone, f as TriangleAlert, ft as Flame, gt as FileText, i as VolumeX, k as Scale, kt as CircleCheck, lt as GraduationCap, n as X, nt as LayoutGrid, o as Users, ot as House, pt as Flag, qt as ArrowDown, r as WifiOff, rt as Layers, s as User, w as ShieldAlert, wt as ClipboardList, y as Sparkles, yt as Download, zt as Building2 } from "./icons-y6mUmdUg.js";
@@ -744,9 +744,9 @@ var CapacitorHttpPluginWeb = class extends WebPlugin {
 };
 registerPlugin("CapacitorHttp", { web: () => new CapacitorHttpPluginWeb() });
 // node_modules/@capacitor/app/dist/esm/index.js
-var App$1 = registerPlugin("App", { web: () => __vitePreload(() => import("./web-CPOV_TCX.js").then((m) => new m.AppWeb()), []) });
+var App$1 = registerPlugin("App", { web: () => __vitePreload(() => import("./web-B5GgERXJ.js").then((m) => new m.AppWeb()), []) });
 // node_modules/@capacitor/browser/dist/esm/index.js
-var Browser = registerPlugin("Browser", { web: () => __vitePreload(() => import("./web-BQenPPlf.js").then((m) => new m.BrowserWeb()), []) });
+var Browser = registerPlugin("Browser", { web: () => __vitePreload(() => import("./web-CubWLNdt.js").then((m) => new m.BrowserWeb()), []) });
 // node_modules/@capacitor/synapse/dist/synapse.mjs
 function s(t) {
 	t.CapacitorUtils.Synapse = new Proxy({}, { get(e, n) {
@@ -895,12 +895,12 @@ var Encoding;
 	Encoding["UTF16"] = "utf16";
 })(Encoding || (Encoding = {}));
 // node_modules/@capacitor/filesystem/dist/esm/index.js
-var Filesystem = registerPlugin("Filesystem", { web: () => __vitePreload(() => import("./web-C_Tn46vd.js").then((m) => new m.FilesystemWeb()), []) });
+var Filesystem = registerPlugin("Filesystem", { web: () => __vitePreload(() => import("./web-C-n_ayne.js").then((m) => new m.FilesystemWeb()), []) });
 f();
 // node_modules/@capacitor/share/dist/esm/index.js
-var Share = registerPlugin("Share", { web: () => __vitePreload(() => import("./web-B-OtuxN5.js").then((m) => new m.ShareWeb()), []) });
+var Share = registerPlugin("Share", { web: () => __vitePreload(() => import("./web-DbpJtBf4.js").then((m) => new m.ShareWeb()), []) });
 // node_modules/@capacitor/splash-screen/dist/esm/index.js
-var SplashScreen = registerPlugin("SplashScreen", { web: () => __vitePreload(() => import("./web-Codg3LRl.js").then((m) => new m.SplashScreenWeb()), []) });
+var SplashScreen = registerPlugin("SplashScreen", { web: () => __vitePreload(() => import("./web-CswPkPxE.js").then((m) => new m.SplashScreenWeb()), []) });
 // node_modules/@capacitor/status-bar/dist/esm/definitions.js
 var Style;
 (function(Style) {
@@ -1075,11 +1075,8 @@ function initNativeAndroidShell(options) {
 		}
 	};
 	document.addEventListener("click", onDocumentClick, true);
-	App$1.addListener("backButton", ({ canGoBack }) => {
-		if (!options.onBackButton()) {
-			if (canGoBack && window.history.length > 1) window.history.back();
-			else App$1.exitApp();
-		}
+	App$1.addListener("backButton", () => {
+		if (!options.onBackButton()) App$1.exitApp();
 	}).then((handle) => {
 		if (disposed) handle.remove();
 		else listeners.push(handle);
@@ -1391,11 +1388,30 @@ var UI_COPY = {
 		}
 	}
 };
+// node_modules/@capacitor/local-notifications/dist/esm/definitions.js
+/**
+* Day of the week. Used for scheduling notifications on a particular weekday.
+*/
+var Weekday;
+(function(Weekday) {
+	Weekday[Weekday["Sunday"] = 1] = "Sunday";
+	Weekday[Weekday["Monday"] = 2] = "Monday";
+	Weekday[Weekday["Tuesday"] = 3] = "Tuesday";
+	Weekday[Weekday["Wednesday"] = 4] = "Wednesday";
+	Weekday[Weekday["Thursday"] = 5] = "Thursday";
+	Weekday[Weekday["Friday"] = 6] = "Friday";
+	Weekday[Weekday["Saturday"] = 7] = "Saturday";
+})(Weekday || (Weekday = {}));
+// node_modules/@capacitor/local-notifications/dist/esm/index.js
+var LocalNotifications = registerPlugin("LocalNotifications", { web: () => __vitePreload(() => import("./web-tPSGFtPv.js").then((m) => new m.LocalNotificationsWeb()), []) });
 // src/lib/notifications.ts
 var SOUND_PREF_KEY = "nemvia-notif-sound-enabled";
 var DESKTOP_PREF_KEY = "nemvia-notif-desktop-enabled";
+var NATIVE_CHANNEL_ID = "nemvia-alerts";
 var sharedAudioCtx = null;
 var unlockBound = false;
+var nativeNotifInitialized = false;
+var nativeNotifSeq = 100;
 function getAudioContext() {
 	if (typeof window === "undefined") return null;
 	const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1449,6 +1465,32 @@ function getSelectedTone() {
 		}
 	} catch {}
 	return "classic";
+}
+async function initNativeNotifications() {
+	if (!isNativeApp() || nativeNotifInitialized) return;
+	nativeNotifInitialized = true;
+	try {
+		await LocalNotifications.createChannel({
+			id: NATIVE_CHANNEL_ID,
+			name: "إشعارات NEMVIA",
+			description: "تنبيهات الرسائل والواجبات والاختبارات والحصص المباشرة",
+			importance: 4,
+			visibility: 1,
+			vibration: true
+		});
+	} catch {}
+	try {
+		const perm = await LocalNotifications.checkPermissions();
+		if (perm.display === "prompt" || perm.display === "prompt-with-rationale") {
+			if ((await LocalNotifications.requestPermissions()).display === "granted") setDesktopNotifEnabled(true);
+		} else if (perm.display === "granted") setDesktopNotifEnabled(true);
+	} catch {}
+	try {
+		await LocalNotifications.addListener("localNotificationActionPerformed", (event) => {
+			const targetSection = event?.notification?.extra?.targetSection;
+			if (typeof targetSection === "string" && targetSection && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("nemvia:open-section", { detail: { targetSection } }));
+		});
+	} catch {}
 }
 function playNotificationChime(kind = "message", force = false, toneOverride) {
 	if (!force && !isSoundEnabled()) return;
@@ -1578,6 +1620,15 @@ function playNotificationChime(kind = "message", force = false, toneOverride) {
 	} catch {}
 }
 async function requestBrowserNotificationPermission() {
+	if (isNativeApp()) try {
+		if ((await LocalNotifications.requestPermissions()).display === "granted") {
+			setDesktopNotifEnabled(true);
+			return "granted";
+		}
+		return "denied";
+	} catch {
+		return "unsupported";
+	}
 	if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
 	if (Notification.permission === "granted") {
 		setDesktopNotifEnabled(true);
@@ -1587,9 +1638,25 @@ async function requestBrowserNotificationPermission() {
 	if (res === "granted") setDesktopNotifEnabled(true);
 	return res;
 }
-function showBrowserNotification(title, body, tag = "nemvia-alert") {
+function showBrowserNotification(title, body, tag = "nemvia-alert", targetSection) {
+	if (!isDesktopNotifEnabled()) return;
+	if (isNativeApp()) {
+		nativeNotifSeq = nativeNotifSeq % 9e5 + 1;
+		LocalNotifications.schedule({ notifications: [{
+			id: nativeNotifSeq,
+			title,
+			body,
+			channelId: NATIVE_CHANNEL_ID,
+			schedule: { at: new Date(Date.now() + 250) },
+			extra: {
+				tag,
+				targetSection
+			}
+		}] }).catch(() => {});
+		return;
+	}
 	if (typeof window === "undefined" || !("Notification" in window)) return;
-	if (!isDesktopNotifEnabled() || Notification.permission !== "granted") return;
+	if (Notification.permission !== "granted") return;
 	const opts = {
 		body,
 		tag,
@@ -5168,7 +5235,7 @@ var ReportModal = ({ target, onClose, onSubmit }) => {
 	});
 };
 // node_modules/@capacitor/network/dist/esm/index.js
-var Network = registerPlugin("Network", { web: () => __vitePreload(() => import("./web-BcyktfA-.js").then((m) => new m.NetworkWeb()), []) });
+var Network = registerPlugin("Network", { web: () => __vitePreload(() => import("./web-DGdRUu97.js").then((m) => new m.NetworkWeb()), []) });
 // src/components/pwa/OfflineIndicator.tsx
 function useOnlineStatus() {
 	const [isOnline, setIsOnline] = (0, import_react.useState)(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -5540,20 +5607,20 @@ var PullToRefresh = ({ onRefresh, enabled = true, children }) => {
 	});
 };
 // src/App.tsx
-var ClassesView = (0, import_react.lazy)(() => __vitePreload(() => import("./ClassesView-DGINM_9a.js").then((m) => ({ default: m.ClassesView })), __vite__mapDeps([0,1,2,3])));
-var CoursesView = (0, import_react.lazy)(() => __vitePreload(() => import("./CoursesView-D1rBXrgi.js").then((m) => ({ default: m.CoursesView })), __vite__mapDeps([4,1,2,5,6,3])));
-var AssignmentsView = (0, import_react.lazy)(() => __vitePreload(() => import("./AssignmentsView-DhKakbRj.js").then((m) => ({ default: m.AssignmentsView })), __vite__mapDeps([7,1,2,5,3])));
+var ClassesView = (0, import_react.lazy)(() => __vitePreload(() => import("./ClassesView-DeAE4LYe.js").then((m) => ({ default: m.ClassesView })), __vite__mapDeps([0,1,2,3])));
+var CoursesView = (0, import_react.lazy)(() => __vitePreload(() => import("./CoursesView-BiJOYvxk.js").then((m) => ({ default: m.CoursesView })), __vite__mapDeps([4,1,2,5,6,3])));
+var AssignmentsView = (0, import_react.lazy)(() => __vitePreload(() => import("./AssignmentsView-QN2ZBdX_.js").then((m) => ({ default: m.AssignmentsView })), __vite__mapDeps([7,1,2,5,3])));
 var CommunityView = (0, import_react.lazy)(() => __vitePreload(() => import("./CommunityView-DQm37424.js").then((m) => ({ default: m.CommunityView })), __vite__mapDeps([8,1,2,3])));
-var LiveClassroomView = (0, import_react.lazy)(() => __vitePreload(() => import("./LiveClassroomView-CnvqdWxB.js").then((m) => ({ default: m.LiveClassroomView })), __vite__mapDeps([9,1,2,3])));
+var LiveClassroomView = (0, import_react.lazy)(() => __vitePreload(() => import("./LiveClassroomView-D0C5EpPk.js").then((m) => ({ default: m.LiveClassroomView })), __vite__mapDeps([9,1,2,3])));
 var MessagesView = (0, import_react.lazy)(() => __vitePreload(() => import("./MessagesView-CiK5uH0m.js").then((m) => ({ default: m.MessagesView })), __vite__mapDeps([10,1,2,3])));
-var StudyToolsView = (0, import_react.lazy)(() => __vitePreload(() => import("./StudyToolsView-Dq_DffjQ.js").then((m) => ({ default: m.StudyToolsView })), __vite__mapDeps([11,1,2,5,3])));
-var AIStudioView = (0, import_react.lazy)(() => __vitePreload(() => import("./AIStudioView-_JtZtG-b.js").then((m) => ({ default: m.AIStudioView })), __vite__mapDeps([12,1,2,5,3])));
+var StudyToolsView = (0, import_react.lazy)(() => __vitePreload(() => import("./StudyToolsView-D6CcMMpL.js").then((m) => ({ default: m.StudyToolsView })), __vite__mapDeps([11,1,2,5,3])));
+var AIStudioView = (0, import_react.lazy)(() => __vitePreload(() => import("./AIStudioView-N3PHT2O_.js").then((m) => ({ default: m.AIStudioView })), __vite__mapDeps([12,1,2,5,3])));
 var AdminView = (0, import_react.lazy)(() => __vitePreload(() => import("./AdminView-CRYUC0iy.js").then((m) => ({ default: m.AdminView })), __vite__mapDeps([13,1,2,3])));
-var ProfileView = (0, import_react.lazy)(() => __vitePreload(() => import("./ProfileView-DEv9cNG8.js").then((m) => ({ default: m.ProfileView })), __vite__mapDeps([14,1,2,15,3])));
+var ProfileView = (0, import_react.lazy)(() => __vitePreload(() => import("./ProfileView-CG1j2L7z.js").then((m) => ({ default: m.ProfileView })), __vite__mapDeps([14,1,2,15,3])));
 var LegalView = (0, import_react.lazy)(() => __vitePreload(() => Promise.resolve().then(() => LegalView_exports).then((m) => ({ default: m.LegalView })), void 0));
-var SettingsView = (0, import_react.lazy)(() => __vitePreload(() => import("./SettingsView-phEczHaq.js").then((m) => ({ default: m.SettingsView })), __vite__mapDeps([16,1,2,6,3])));
-var CalendarView = (0, import_react.lazy)(() => __vitePreload(() => import("./CalendarView-ByNzGvvQ.js").then((m) => ({ default: m.CalendarView })), __vite__mapDeps([17,1,2,3])));
-var GradebookView = (0, import_react.lazy)(() => __vitePreload(() => import("./GradebookView-S4cydqCV.js").then((m) => ({ default: m.GradebookView })), __vite__mapDeps([18,1,2,3])));
+var SettingsView = (0, import_react.lazy)(() => __vitePreload(() => import("./SettingsView-7wkgzTM3.js").then((m) => ({ default: m.SettingsView })), __vite__mapDeps([16,1,2,6,3])));
+var CalendarView = (0, import_react.lazy)(() => __vitePreload(() => import("./CalendarView-DvfzGtTh.js").then((m) => ({ default: m.CalendarView })), __vite__mapDeps([17,1,2,3])));
+var GradebookView = (0, import_react.lazy)(() => __vitePreload(() => import("./GradebookView-D_9TqkD0.js").then((m) => ({ default: m.GradebookView })), __vite__mapDeps([18,1,2,3])));
 var EMPTY = {
 	classes: [],
 	schools: [],
@@ -5628,12 +5695,44 @@ function App() {
 		setActiveSectionRaw((prev) => {
 			if (prev === next) return prev;
 			sectionHistoryRef.current = [...sectionHistoryRef.current.slice(-15), prev];
+			if (!isNativeApp() && prev === "home" && next !== "home" && typeof window !== "undefined") try {
+				window.history.pushState({ nemviaHomeGuard: true }, "");
+			} catch {}
 			return next;
 		});
 	}, []);
 	const refreshRef = (0, import_react.useRef)(async () => {});
 	(0, import_react.useEffect)(() => {
 		bindAudioUnlock();
+		initNativeNotifications();
+		const onOpenSection = (ev) => {
+			const target = ev.detail?.targetSection;
+			if (target) setActiveSection(target);
+		};
+		const onPopState = () => {
+			if (isNativeApp()) return;
+			const cur = uiStateRef.current;
+			if (cur.hasConfirm) {
+				setConfirmState(null);
+				return;
+			}
+			if (cur.hasReport) {
+				setReportTarget(null);
+				return;
+			}
+			if (cur.searchOpen) {
+				setSearchOpen(false);
+				return;
+			}
+			if (cur.hubOpen) {
+				setHubOpen(false);
+				return;
+			}
+			if (cur.activeSection !== "home") {
+				setActiveSectionRaw("home");
+				sectionHistoryRef.current = [];
+			}
+		};
 		const onKey = (e) => {
 			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
 				e.preventDefault();
@@ -5643,6 +5742,8 @@ function App() {
 		const onVisibility = () => {
 			if (!document.hidden) refreshRef.current();
 		};
+		window.addEventListener("nemvia:open-section", onOpenSection);
+		window.addEventListener("popstate", onPopState);
 		window.addEventListener("keydown", onKey);
 		document.addEventListener("visibilitychange", onVisibility);
 		const cleanupNative = initNativeAndroidShell({
@@ -5668,12 +5769,8 @@ function App() {
 					setHubOpen(false);
 					return true;
 				}
-				if (sectionHistoryRef.current.length > 0) {
-					const previous = sectionHistoryRef.current.pop() || "home";
-					setActiveSectionRaw(previous);
-					return true;
-				}
 				if (cur.activeSection !== "home") {
+					sectionHistoryRef.current = [];
 					setActiveSectionRaw("home");
 					return true;
 				}
@@ -5685,11 +5782,13 @@ function App() {
 			}
 		});
 		return () => {
+			window.removeEventListener("nemvia:open-section", onOpenSection);
+			window.removeEventListener("popstate", onPopState);
 			window.removeEventListener("keydown", onKey);
 			document.removeEventListener("visibilitychange", onVisibility);
 			cleanupNative();
 		};
-	}, [notify]);
+	}, [notify, setActiveSection]);
 	const seedSeenIds = (0, import_react.useCallback)((d) => {
 		const s = seenIdsRef.current;
 		d.messages.forEach((m) => s.add(`msg:${m.id}`));
@@ -5704,7 +5803,7 @@ function App() {
 		if (seenIdsRef.current.has(opts.id)) return;
 		seenIdsRef.current.add(opts.id);
 		playNotificationChime(opts.chime);
-		showBrowserNotification(opts.title, opts.body, opts.id);
+		showBrowserNotification(opts.title, opts.body, opts.id, opts.targetSection);
 		setLiveAlert({
 			title: opts.title,
 			body: opts.body,
