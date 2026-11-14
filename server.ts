@@ -11,7 +11,23 @@ import { GoogleGenAI, Type } from '@google/genai';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const MODEL_NAME = process.env.GEMINI_MODEL?.trim() || 'gemini-4-hydrogen';
+const PRIMARY_MODEL = process.env.GEMINI_MODEL?.trim() || 'gemini-4-hydrogen';
+
+function getCandidateModels(): string[] {
+  const models: string[] = [];
+  const addModel = (val?: string) => {
+    const clean = (val || '').trim();
+    if (clean && !models.includes(clean)) models.push(clean);
+  };
+  addModel(PRIMARY_MODEL);
+  const extraRaw = process.env.GEMINI_MODELS || '';
+  for (const part of extraRaw.split(/[,;\n\r]+/)) {
+    addModel(part);
+  }
+  addModel('gemini-2.5-flash');
+  addModel('gemini-3.1-flash-lite');
+  return models;
+}
 
 function loadFirebaseWebApiKey(): string {
   const fromEnv = (process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY || '').trim();
@@ -60,30 +76,102 @@ async function verifyFirebaseBearer(token: string): Promise<string | null> {
   }
 }
 
-function getAIClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return null;
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
+function getGeminiApiKeys(): string[] {
+  const collected: string[] = [];
+  const addKey = (val?: string) => {
+    const trimmed = (val || '').trim();
+    if (trimmed && !collected.includes(trimmed)) collected.push(trimmed);
+  };
+  addKey(process.env.GEMINI_API_KEY);
+  const listRaw = process.env.GEMINI_API_KEYS || '';
+  for (const part of listRaw.split(/[,;\n\r]+/)) {
+    addKey(part);
+  }
+  for (let i = 1; i <= 10; i++) {
+    addKey(process.env[`GEMINI_API_KEY_${i}`]);
+  }
+  return collected;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+const aiClientPool = new Map<string, GoogleGenAI>();
+const keyCooldownUntil = new Map<string, number>();
+const modelCooldownUntil = new Map<string, number>();
+let keyRoundRobinIndex = 0;
+
+function getAIClientForKey(apiKey: string): GoogleGenAI {
+  let client = aiClientPool.get(apiKey);
+  if (!client) {
+    client = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+    aiClientPool.set(apiKey, client);
+  }
+  return client;
+}
+
+async function runWithAI<T>(fn: (ai: GoogleGenAI, model: string) => Promise<T>): Promise<T> {
+  const keys = getGeminiApiKeys();
+  if (keys.length === 0) {
+    throw new Error('NO_GEMINI_KEY_CONFIGURED');
+  }
+
+  const now = Date.now();
+  const allModels = getCandidateModels();
+  const activeModels = allModels.filter(m => (modelCooldownUntil.get(m) || 0) <= now);
+  const modelsToTry = activeModels.length > 0 ? activeModels : allModels;
+
+  const start = keyRoundRobinIndex % keys.length;
+  keyRoundRobinIndex = (keyRoundRobinIndex + 1) % keys.length;
+  const rotated = [...keys.slice(start), ...keys.slice(0, start)];
+
+  const readyKeys = rotated.filter(k => (keyCooldownUntil.get(k) || 0) <= now);
+  const candidateKeys = readyKeys.length > 0 ? readyKeys : rotated;
+
   let lastErr: unknown;
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      lastErr = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      const transient = msg.includes('429') || msg.includes('503') || msg.includes('UNAVAILABLE');
-      if (!transient || i === retries) break;
-      await new Promise(r => setTimeout(r, 600 * (i + 1)));
+  for (let mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
+    const model = modelsToTry[mIdx];
+    for (let idx = 0; idx < candidateKeys.length; idx++) {
+      const key = candidateKeys[idx];
+      const ai = getAIClientForKey(key);
+      const maxRetriesForKey = candidateKeys.length === 1 ? 1 : 0;
+
+      for (let attempt = 0; attempt <= maxRetriesForKey; attempt++) {
+        try {
+          return await fn(ai, model);
+        } catch (err: unknown) {
+          lastErr = err;
+          const msg = err instanceof Error ? err.message : String(err);
+          const isModelNotFound = msg.includes('404') || msg.includes('NOT_FOUND');
+          const isQuota = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED');
+          const isTransient = isQuota || msg.includes('503') || msg.includes('UNAVAILABLE');
+          const isInvalidKey = msg.includes('API_KEY_INVALID') || msg.includes('PERMISSION_DENIED');
+
+          if (isModelNotFound) {
+            modelCooldownUntil.set(model, Date.now() + 30 * 60 * 1000);
+            break;
+          }
+          if (isQuota) {
+            keyCooldownUntil.set(key, Date.now() + 60 * 1000);
+            if (idx < candidateKeys.length - 1 || mIdx < modelsToTry.length - 1) break;
+          } else if (isInvalidKey) {
+            keyCooldownUntil.set(key, Date.now() + 10 * 60 * 1000);
+            if (idx < candidateKeys.length - 1) break;
+          }
+
+          if (!isTransient || attempt === maxRetriesForKey) break;
+          await new Promise(r => setTimeout(r, 450 * (attempt + 1)));
+        }
+      }
+
+      const lastMsg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+      if (lastMsg.includes('404') || lastMsg.includes('NOT_FOUND')) {
+        break; // انتقل للنموذج البديل مباشرة
+      }
     }
   }
   throw lastErr;
@@ -215,9 +303,12 @@ async function startServer() {
 
   app.get('/api/health', (_req: Request, res: Response) => {
     const apkPath = path.resolve(__dirname, 'release', 'NEMVIA-v1.0.0.apk');
+    const keys = getGeminiApiKeys();
     res.json({
       ok: true,
-      aiReady: Boolean(process.env.GEMINI_API_KEY?.trim()),
+      aiReady: keys.length > 0,
+      aiKeyCount: keys.length,
+      aiModels: getCandidateModels(),
       apkAvailable: fs.existsSync(apkPath),
     });
   });
@@ -260,8 +351,7 @@ async function startServer() {
 
   // 1) المعلم الذكي التفاعلي (Multi-turn AI Tutor)
   app.post('/api/ai/tutor', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -293,9 +383,9 @@ async function startServer() {
         parts: [{ text: m.text }],
       }));
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents,
           config: {
             systemInstruction:
@@ -312,8 +402,7 @@ async function startServer() {
 
   // 2) توليد اختبار متنوع بالذكاء الاصطناعي (نص، صورة، PDF، أو على نمط ملف وورد)
   app.post('/api/ai/generate-quiz', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -386,9 +475,9 @@ async function startServer() {
 
       parts.push({ text: promptLines.join('\n\n') });
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents: [{ role: 'user', parts }],
           config: {
             systemInstruction:
@@ -448,8 +537,7 @@ async function startServer() {
 
   // 3) توليد بطاقات مراجعة (Flashcards)
   app.post('/api/ai/generate-flashcards', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -465,9 +553,9 @@ async function startServer() {
       }
       const safeCount = Math.max(2, Math.min(8, Number(count) || 5));
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents: `أنشئ ${safeCount} بطاقات مراجعة (Flashcards) مركّزة للحفظ والاستذكار السريع حول:\n"""${topic.trim().slice(0, 4000)}"""\nالتصنيف الافتراضي: ${category}.`,
           config: {
             systemInstruction: 'أنت مصمم بطاقات استذكار ذكية باللغة العربية. كل بطاقة تتضمن سؤالاً مختصراً على الوجه الأمامي وإجابة دقيقة واضحة على الوجه الخلفي وتلميحاً قصيراً.',
@@ -503,8 +591,7 @@ async function startServer() {
 
   // 4) تلخيص وشرح الدرس + أسئلة تحقق سريعة
   app.post('/api/ai/lesson-summary', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -515,9 +602,9 @@ async function startServer() {
         return;
       }
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents: `عنوان الدرس: ${title || ''}\nمحتوى الدرس:\n${(content || '').slice(0, 6000)}`,
           config: {
             systemInstruction: 'لخّص الدرس للطالب بأسلوب سلس، ثم استخرج 4 نقاط ذهبية للمراجعة، وأنشئ 3 أسئلة تحقق سريعة مع إجاباتها المختصرة.',
@@ -552,8 +639,7 @@ async function startServer() {
 
   // 5) صياغة تغذية راجعة تربوية للمعلم على إجابة الطالب
   app.post('/api/ai/draft-feedback', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -569,9 +655,9 @@ async function startServer() {
         return;
       }
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents:
             `السؤال (الدرجة القصوى ${maxPoints}): ${question}\n` +
             `إجابة الطالب: ${studentAnswer || 'لم يُجب'}\n` +
@@ -600,8 +686,7 @@ async function startServer() {
 
   // 6) خطة علاجية ذكية من تقرير أداء الطالب
   app.post('/api/ai/study-plan', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -613,9 +698,9 @@ async function startServer() {
         weaknesses?: string[];
       };
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents:
             `الاختبار: ${quizTitle || 'اختبار'}\n` +
             `النسبة المحققة: ${percentage}%\n` +
@@ -655,8 +740,7 @@ async function startServer() {
 
   // 7) تصحيح ومراجعة الواجبات والملفات المرفقة بالذكاء الاصطناعي
   app.post('/api/ai/review-assignment', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -699,9 +783,9 @@ async function startServer() {
           `قيّم حل الطالب بدقة وموضوعية واقترح درجة من ${safeMax} مع تغذية راجعة واضحة، ونقاط قوة، ونقاط للتحسين.`,
       });
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents: [{ role: 'user', parts }],
           config: {
             systemInstruction: 'أنت مساعد تصحيح أكاديمي للمعلمين داخل منصة NEMVIA. قيّم حل الواجب بأمانة وتربوية عالية باللغة العربية.',
@@ -733,8 +817,7 @@ async function startServer() {
 
   // 8) تحويل التسجيل الصوتي للمعلم إلى نص مكتوب
   app.post('/api/ai/transcribe-audio', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -765,9 +848,9 @@ async function startServer() {
         return;
       }
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents: [
             {
               role: 'user',
@@ -789,8 +872,7 @@ async function startServer() {
 
   // 9) وضع التحدي: توليد أسئلة تدريب مشابهة لأخطاء الطالب
   app.post('/api/ai/mistake-drill', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -808,9 +890,9 @@ async function startServer() {
       ).join('\n');
       const count = Math.min(4, Math.max(2, mistakes.length));
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents:
             `أخطأ الطالب في الاختبار "${quizTitle}" في الأسئلة التالية:\n${sample}\n\n` +
             `أنشئ ${count} أسئلة تدريب جديدة ومشابهة في الفكرة (ليست منسوخة حرفياً) من نوع mcq أو true_false لمساعدته على إتقان نفس المهارات، مع explanation واضح لكل سؤال.`,
@@ -849,8 +931,7 @@ async function startServer() {
 
   // 10) توصيات وتحليلات ذكية للمعلم بناءً على أداء الصف والأسئلة الصعبة
   app.post('/api/ai/class-insights', async (req: Request, res: Response) => {
-    const ai = getAIClient();
-    if (!ai) {
+    if (getGeminiApiKeys().length === 0) {
       res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
       return;
     }
@@ -863,9 +944,9 @@ async function startServer() {
       const clsText = classSummaries.map(c => `- ${c.title}: متوسط ${c.avgScore}% (${c.totalAttempts} محاولة)`).join('\n') || 'لا توجد بيانات صفوف كافية';
       const qText = trickyQuestions.slice(0, 6).map(q => `- ${q.question} [نسبة الصواب: ${q.accuracy}%${q.topic ? `، الموضوع: ${q.topic}` : ''}]`).join('\n') || 'لا توجد أسئلة متعثرة مسجلة';
 
-      const response = await withRetry(() =>
+      const response = await runWithAI((ai, model) =>
         ai.models.generateContent({
-          model: MODEL_NAME,
+          model,
           contents:
             `ملخص أداء الصفوف:\n${clsText}\n\nأكثر الأسئلة صعوبة أو إرباكاً للطلاب:\n${qText}\n\nقدّم موجزاً تحليلياً للمعلم في سطرين و3-4 خطوات عملية ليطبقها في الحصة القادمة.`,
           config: {
