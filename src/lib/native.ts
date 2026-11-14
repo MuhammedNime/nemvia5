@@ -8,7 +8,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 
 export const ANDROID_APP_ID = 'com.nemvia.app';
 export const ANDROID_AUTH_REDIRECT_URL = 'com.nemvia.app://auth-callback';
-const DEFAULT_REMOTE_API_BASE = 'https://ais-pre-wdr7463xhinhkzg4ohx2pf-472107884917.europe-west2.run.app';
+const DEFAULT_REMOTE_API_BASE = 'https://nemvia-app.onrender.com';
 
 export function isNativeApp(): boolean {
   try {

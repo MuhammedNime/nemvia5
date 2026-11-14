@@ -1,4 +1,4 @@
-import { v as WebPlugin } from "./index-KBMaUlM9.js";
+import { v as WebPlugin } from "./index-CPo3jDak.js";
 // node_modules/@capacitor/network/dist/esm/web.js
 function translatedConnection() {
 	const connection = window.navigator.connection || window.navigator.mozConnection || window.navigator.webkitConnection;

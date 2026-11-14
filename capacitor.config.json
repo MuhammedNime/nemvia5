@@ -10,6 +10,7 @@
       "*.firebasestorage.app",
       "accounts.google.com",
       "meet.jit.si",
+      "nemvia-app.onrender.com",
       "*.google.com",
       "*.googleusercontent.com"
     ]

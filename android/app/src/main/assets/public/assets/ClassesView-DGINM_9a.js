@@ -1,7 +1,7 @@
 import { r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { $ as Link2, D as Send, Ft as ChartColumn, I as Plus, Kt as Award, Mt as ChevronLeft, Nt as Check, O as Search, T as Share2, Ut as BookOpen, X as LogOut, Yt as require_react, it as Landmark, m as Trash2, n as X, o as Users, q as Megaphone, xt as Copy, zt as Building2 } from "./icons-y6mUmdUg.js";
 import { t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
-import { f as getApiBaseUrl, g as shareAppLink, p as isNativeApp } from "./index-KBMaUlM9.js";
+import { f as getApiBaseUrl, g as shareAppLink, p as isNativeApp } from "./index-CPo3jDak.js";
 // src/components/views/InstitutionsView.tsx
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
 var import_jsx_runtime = require_jsx_runtime();

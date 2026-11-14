@@ -8,13 +8,14 @@ on:
 jobs:
   android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - uses: actions/setup-java@v4
         with:
@@ -46,11 +47,9 @@ jobs:
 
       - name: Install dependencies & sync Capacitor Android
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://ais-pre-wdr7463xhinhkzg4ohx2pf-472107884917.europe-west2.run.app' }}
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://nemvia-app.onrender.com' }}
         run: |
-          npm ci
+          npm install --include=dev --legacy-peer-deps
           npm run cap:sync
 
       - name: Build signed Release AAB & APK
@@ -58,6 +57,15 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew bundleRelease assembleRelease --no-daemon
+
+      - name: Record Signing Fingerprints Summary
+        run: |
+          STORE_PASS="${{ secrets.ANDROID_STORE_PASSWORD }}"
+          ALIAS="${{ secrets.ANDROID_KEY_ALIAS }}"
+          if [ -z "$STORE_PASS" ]; then STORE_PASS="nemvia2026!"; fi
+          if [ -z "$ALIAS" ]; then ALIAS="nemvia"; fi
+          echo "### NEMVIA Android Build Ready" >> "$GITHUB_STEP_SUMMARY"
+          keytool -list -v -keystore android/app/nemvia-release.keystore -alias "$ALIAS" -storepass "$STORE_PASS" | grep -E "SHA1:|SHA256:" >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload AAB & APK artifacts
         uses: actions/upload-artifact@v4
@@ -67,3 +75,14 @@ jobs:
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/mapping/release/mapping.txt
+
+      - name: Publish Direct Download Release (APK & AAB)
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: latest-android
+          name: NEMVIA Android Latest
+          make_latest: true
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab

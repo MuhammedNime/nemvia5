@@ -1,4 +1,4 @@
-import { v as WebPlugin } from "./index-KBMaUlM9.js";
+import { v as WebPlugin } from "./index-CPo3jDak.js";
 // node_modules/@capacitor/share/dist/esm/web.js
 var ShareWeb = class extends WebPlugin {
 	async canShare() {

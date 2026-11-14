@@ -1,4 +1,4 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/ClassesView-BJbT2ivm.js","assets/rolldown-runtime-SbdDWaPq.js","assets/icons-y6mUmdUg.js","assets/react-vendor-CpCOhAWp.js","assets/CoursesView-mAo1eBK2.js","assets/ai-DvF91BcX.js","assets/questionBank-CLFgLnk1.js","assets/AssignmentsView-Cy5MYTjl.js","assets/CommunityView-DQm37424.js","assets/LiveClassroomView-artVJyYd.js","assets/MessagesView-CiK5uH0m.js","assets/StudyToolsView-DUfCqrmS.js","assets/AIStudioView-CvO_aOfy.js","assets/AdminView-CRYUC0iy.js","assets/ProfileView-D5OUQgrd.js","assets/firebase-Cw5EUFwp.js","assets/SettingsView-DT6rOh2d.js","assets/CalendarView-Bam6cP88.js","assets/GradebookView-R69oYAHa.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/ClassesView-DGINM_9a.js","assets/rolldown-runtime-SbdDWaPq.js","assets/icons-y6mUmdUg.js","assets/react-vendor-CpCOhAWp.js","assets/CoursesView-D1rBXrgi.js","assets/ai-CHroX9Wo.js","assets/questionBank-CLFgLnk1.js","assets/AssignmentsView-DhKakbRj.js","assets/CommunityView-DQm37424.js","assets/LiveClassroomView-CnvqdWxB.js","assets/MessagesView-CiK5uH0m.js","assets/StudyToolsView-Dq_DffjQ.js","assets/AIStudioView-_JtZtG-b.js","assets/AdminView-CRYUC0iy.js","assets/ProfileView-DEv9cNG8.js","assets/firebase-Cw5EUFwp.js","assets/SettingsView-phEczHaq.js","assets/CalendarView-ByNzGvvQ.js","assets/GradebookView-S4cydqCV.js"])))=>i.map(i=>d[i]);
 import { n as __exportAll, r as __toESM } from "./rolldown-runtime-SbdDWaPq.js";
 import { n as require_client, t as require_jsx_runtime } from "./react-vendor-CpCOhAWp.js";
 import { A as RotateCw, At as CircleAlert, C as ShieldCheck, Dt as CircleUser, E as Settings, G as MessageSquare, Gt as BellRing, J as Mail, Kt as Award, Lt as Calendar, N as RefreshCw, Nt as Check, O as Search, P as Radio, Pt as CheckCheck, Q as LoaderCircle, Ut as BookOpen, Wt as Bell, X as LogOut, Y as MailCheck, Yt as require_react, Z as Lock, _t as FileCheck, a as Volume2, b as Smartphone, f as TriangleAlert, ft as Flame, gt as FileText, i as VolumeX, k as Scale, kt as CircleCheck, lt as GraduationCap, n as X, nt as LayoutGrid, o as Users, ot as House, pt as Flag, qt as ArrowDown, r as WifiOff, rt as Layers, s as User, w as ShieldAlert, wt as ClipboardList, y as Sparkles, yt as Download, zt as Building2 } from "./icons-y6mUmdUg.js";
@@ -744,9 +744,9 @@ var CapacitorHttpPluginWeb = class extends WebPlugin {
 };
 registerPlugin("CapacitorHttp", { web: () => new CapacitorHttpPluginWeb() });
 // node_modules/@capacitor/app/dist/esm/index.js
-var App$1 = registerPlugin("App", { web: () => __vitePreload(() => import("./web-BSDobXRG.js").then((m) => new m.AppWeb()), []) });
+var App$1 = registerPlugin("App", { web: () => __vitePreload(() => import("./web-CPOV_TCX.js").then((m) => new m.AppWeb()), []) });
 // node_modules/@capacitor/browser/dist/esm/index.js
-var Browser = registerPlugin("Browser", { web: () => __vitePreload(() => import("./web-TM9cRpp2.js").then((m) => new m.BrowserWeb()), []) });
+var Browser = registerPlugin("Browser", { web: () => __vitePreload(() => import("./web-BQenPPlf.js").then((m) => new m.BrowserWeb()), []) });
 // node_modules/@capacitor/synapse/dist/synapse.mjs
 function s(t) {
 	t.CapacitorUtils.Synapse = new Proxy({}, { get(e, n) {
@@ -895,12 +895,12 @@ var Encoding;
 	Encoding["UTF16"] = "utf16";
 })(Encoding || (Encoding = {}));
 // node_modules/@capacitor/filesystem/dist/esm/index.js
-var Filesystem = registerPlugin("Filesystem", { web: () => __vitePreload(() => import("./web-BIV2UjDm.js").then((m) => new m.FilesystemWeb()), []) });
+var Filesystem = registerPlugin("Filesystem", { web: () => __vitePreload(() => import("./web-C_Tn46vd.js").then((m) => new m.FilesystemWeb()), []) });
 f();
 // node_modules/@capacitor/share/dist/esm/index.js
-var Share = registerPlugin("Share", { web: () => __vitePreload(() => import("./web-CMmXJ0Cs.js").then((m) => new m.ShareWeb()), []) });
+var Share = registerPlugin("Share", { web: () => __vitePreload(() => import("./web-B-OtuxN5.js").then((m) => new m.ShareWeb()), []) });
 // node_modules/@capacitor/splash-screen/dist/esm/index.js
-var SplashScreen = registerPlugin("SplashScreen", { web: () => __vitePreload(() => import("./web-hUTfVcbB.js").then((m) => new m.SplashScreenWeb()), []) });
+var SplashScreen = registerPlugin("SplashScreen", { web: () => __vitePreload(() => import("./web-Codg3LRl.js").then((m) => new m.SplashScreenWeb()), []) });
 // node_modules/@capacitor/status-bar/dist/esm/definitions.js
 var Style;
 (function(Style) {
@@ -951,7 +951,7 @@ var Animation;
 })(Animation || (Animation = {}));
 // node_modules/@capacitor/status-bar/dist/esm/index.js
 var StatusBar = registerPlugin("StatusBar");
-var DEFAULT_REMOTE_API_BASE = "https://ais-pre-wdr7463xhinhkzg4ohx2pf-472107884917.europe-west2.run.app";
+var DEFAULT_REMOTE_API_BASE = "https://nemvia-app.onrender.com";
 function isNativeApp() {
 	try {
 		return Capacitor.isNativePlatform();
@@ -5168,7 +5168,7 @@ var ReportModal = ({ target, onClose, onSubmit }) => {
 	});
 };
 // node_modules/@capacitor/network/dist/esm/index.js
-var Network = registerPlugin("Network", { web: () => __vitePreload(() => import("./web-nItLDp_x.js").then((m) => new m.NetworkWeb()), []) });
+var Network = registerPlugin("Network", { web: () => __vitePreload(() => import("./web-BcyktfA-.js").then((m) => new m.NetworkWeb()), []) });
 // src/components/pwa/OfflineIndicator.tsx
 function useOnlineStatus() {
 	const [isOnline, setIsOnline] = (0, import_react.useState)(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -5540,20 +5540,20 @@ var PullToRefresh = ({ onRefresh, enabled = true, children }) => {
 	});
 };
 // src/App.tsx
-var ClassesView = (0, import_react.lazy)(() => __vitePreload(() => import("./ClassesView-BJbT2ivm.js").then((m) => ({ default: m.ClassesView })), __vite__mapDeps([0,1,2,3])));
-var CoursesView = (0, import_react.lazy)(() => __vitePreload(() => import("./CoursesView-mAo1eBK2.js").then((m) => ({ default: m.CoursesView })), __vite__mapDeps([4,1,2,5,6,3])));
-var AssignmentsView = (0, import_react.lazy)(() => __vitePreload(() => import("./AssignmentsView-Cy5MYTjl.js").then((m) => ({ default: m.AssignmentsView })), __vite__mapDeps([7,1,2,5,3])));
+var ClassesView = (0, import_react.lazy)(() => __vitePreload(() => import("./ClassesView-DGINM_9a.js").then((m) => ({ default: m.ClassesView })), __vite__mapDeps([0,1,2,3])));
+var CoursesView = (0, import_react.lazy)(() => __vitePreload(() => import("./CoursesView-D1rBXrgi.js").then((m) => ({ default: m.CoursesView })), __vite__mapDeps([4,1,2,5,6,3])));
+var AssignmentsView = (0, import_react.lazy)(() => __vitePreload(() => import("./AssignmentsView-DhKakbRj.js").then((m) => ({ default: m.AssignmentsView })), __vite__mapDeps([7,1,2,5,3])));
 var CommunityView = (0, import_react.lazy)(() => __vitePreload(() => import("./CommunityView-DQm37424.js").then((m) => ({ default: m.CommunityView })), __vite__mapDeps([8,1,2,3])));
-var LiveClassroomView = (0, import_react.lazy)(() => __vitePreload(() => import("./LiveClassroomView-artVJyYd.js").then((m) => ({ default: m.LiveClassroomView })), __vite__mapDeps([9,1,2,3])));
+var LiveClassroomView = (0, import_react.lazy)(() => __vitePreload(() => import("./LiveClassroomView-CnvqdWxB.js").then((m) => ({ default: m.LiveClassroomView })), __vite__mapDeps([9,1,2,3])));
 var MessagesView = (0, import_react.lazy)(() => __vitePreload(() => import("./MessagesView-CiK5uH0m.js").then((m) => ({ default: m.MessagesView })), __vite__mapDeps([10,1,2,3])));
-var StudyToolsView = (0, import_react.lazy)(() => __vitePreload(() => import("./StudyToolsView-DUfCqrmS.js").then((m) => ({ default: m.StudyToolsView })), __vite__mapDeps([11,1,2,5,3])));
-var AIStudioView = (0, import_react.lazy)(() => __vitePreload(() => import("./AIStudioView-CvO_aOfy.js").then((m) => ({ default: m.AIStudioView })), __vite__mapDeps([12,1,2,5,3])));
+var StudyToolsView = (0, import_react.lazy)(() => __vitePreload(() => import("./StudyToolsView-Dq_DffjQ.js").then((m) => ({ default: m.StudyToolsView })), __vite__mapDeps([11,1,2,5,3])));
+var AIStudioView = (0, import_react.lazy)(() => __vitePreload(() => import("./AIStudioView-_JtZtG-b.js").then((m) => ({ default: m.AIStudioView })), __vite__mapDeps([12,1,2,5,3])));
 var AdminView = (0, import_react.lazy)(() => __vitePreload(() => import("./AdminView-CRYUC0iy.js").then((m) => ({ default: m.AdminView })), __vite__mapDeps([13,1,2,3])));
-var ProfileView = (0, import_react.lazy)(() => __vitePreload(() => import("./ProfileView-D5OUQgrd.js").then((m) => ({ default: m.ProfileView })), __vite__mapDeps([14,1,2,15,3])));
+var ProfileView = (0, import_react.lazy)(() => __vitePreload(() => import("./ProfileView-DEv9cNG8.js").then((m) => ({ default: m.ProfileView })), __vite__mapDeps([14,1,2,15,3])));
 var LegalView = (0, import_react.lazy)(() => __vitePreload(() => Promise.resolve().then(() => LegalView_exports).then((m) => ({ default: m.LegalView })), void 0));
-var SettingsView = (0, import_react.lazy)(() => __vitePreload(() => import("./SettingsView-DT6rOh2d.js").then((m) => ({ default: m.SettingsView })), __vite__mapDeps([16,1,2,6,3])));
-var CalendarView = (0, import_react.lazy)(() => __vitePreload(() => import("./CalendarView-Bam6cP88.js").then((m) => ({ default: m.CalendarView })), __vite__mapDeps([17,1,2,3])));
-var GradebookView = (0, import_react.lazy)(() => __vitePreload(() => import("./GradebookView-R69oYAHa.js").then((m) => ({ default: m.GradebookView })), __vite__mapDeps([18,1,2,3])));
+var SettingsView = (0, import_react.lazy)(() => __vitePreload(() => import("./SettingsView-phEczHaq.js").then((m) => ({ default: m.SettingsView })), __vite__mapDeps([16,1,2,6,3])));
+var CalendarView = (0, import_react.lazy)(() => __vitePreload(() => import("./CalendarView-ByNzGvvQ.js").then((m) => ({ default: m.CalendarView })), __vite__mapDeps([17,1,2,3])));
+var GradebookView = (0, import_react.lazy)(() => __vitePreload(() => import("./GradebookView-S4cydqCV.js").then((m) => ({ default: m.GradebookView })), __vite__mapDeps([18,1,2,3])));
 var EMPTY = {
 	classes: [],
 	schools: [],
