@@ -3,8 +3,8 @@ services:
     name: nemvia-app
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: node server.ts
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: ./node_modules/.bin/tsx server.ts
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
