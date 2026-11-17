@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Award, CheckCircle2, ClipboardList, Download, FileCheck, Filter } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Award, CheckCircle2, ClipboardList, Download, FileCheck, Filter, Printer } from 'lucide-react';
 import { AppRole, Assignment, ClassItem, ClassMemberInfo, Quiz, Submission } from '../../types';
 import { useAppSettings } from '../../lib/settings';
 import { saveOrShareBlobFile } from '../../lib/native';
@@ -154,15 +154,48 @@ export const GradebookView: React.FC<GradebookViewProps> = ({
     void saveOrShareBlobFile(blob, `nemvia-grades-${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
+  useEffect(() => {
+    const cleanup = () => document.body.classList.remove('nemvia-printing-gradebook');
+    window.addEventListener('afterprint', cleanup);
+    return () => {
+      cleanup();
+      window.removeEventListener('afterprint', cleanup);
+    };
+  }, []);
+
+  const handlePrintPdf = () => {
+    document.body.classList.add('nemvia-printing-gradebook');
+    window.print();
+    window.setTimeout(() => document.body.classList.remove('nemvia-printing-gradebook'), 800);
+  };
+
   const heading = settings.lang === 'en'
     ? 'Comprehensive Gradebook'
     : settings.lang === 'fr'
       ? 'Relevé de notes'
       : 'سجل الدرجات الشامل';
 
+  const selectedClassName = selectedClass === 'all' ? 'جميع الصفوف' : (classMap.get(selectedClass) || 'صف محدد');
+
   return (
-    <div className="space-y-6 animate-in fade-in">
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 flex flex-wrap items-center justify-between gap-4">
+    <div id="nemvia-printable-gradebook" className="space-y-6 animate-in fade-in">
+      {/* Official RTL Header shown in PDF print mode */}
+      <div className="hidden print:block border-b-2 border-slate-900 pb-4 mb-4 space-y-1">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-black text-slate-900">منصة NEMVIA التعليمية — كشف الدرجات والتقويم</h2>
+            <p className="text-xs font-bold text-slate-700">
+              {isTeacherOrAdmin ? `إعداد المعلم/المشرف: ${currentUserName}` : `الطالب/ـة: ${currentUserName}`} · الصف: {selectedClassName}
+            </p>
+          </div>
+          <div className="text-left text-xs text-slate-600">
+            <p>تاريخ الطباعة: {new Date().toLocaleDateString('ar')}</p>
+            <p className="font-bold">المعدل العام: {avgPercent}%</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="no-print bg-white rounded-3xl border border-slate-200 p-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-[#1677c7] text-white flex items-center justify-center shrink-0">
             <ClipboardList className="w-5 h-5" />
@@ -171,21 +204,33 @@ export const GradebookView: React.FC<GradebookViewProps> = ({
             <h1 className="text-xl font-black text-slate-900">{heading}</h1>
             <p className="text-xs text-slate-500 mt-0.5">
               {isTeacherOrAdmin
-                ? 'استعراض جميع درجات الاختبارات والواجبات للطلاب وتصدير كشف CSV/Excel.'
-                : 'متابعة درجاتك في كل الاختبارات والواجبات وملاحظات المعلم في مكان واحد.'}
+                ? 'استعراض جميع درجات الاختبارات والواجبات للطلاب وتصدير كشف CSV أو طباعة PDF.'
+                : 'متابعة درجاتك في كل الاختبارات والواجبات وملاحظات المعلم وتصدير شهادة درجات.'}
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={exportCsv}
-          disabled={rows.length === 0}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
-        >
-          <Download className="w-4 h-4" />
-          <span>{settings.lang === 'en' ? 'Export CSV / Excel' : 'تصدير كشف الدرجات (CSV)'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrintPdf}
+            disabled={rows.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            <span>{settings.lang === 'en' ? 'Print / PDF' : 'تصدير / طباعة PDF'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={rows.length === 0}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>{settings.lang === 'en' ? 'Export CSV / Excel' : 'تصدير CSV'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -209,7 +254,7 @@ export const GradebookView: React.FC<GradebookViewProps> = ({
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="no-print bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 flex-wrap">
           <Filter className="w-4 h-4 text-slate-400" />
           <select

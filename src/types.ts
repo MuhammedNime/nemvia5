@@ -227,7 +227,7 @@ export interface ChatAttachment {
   id: string;
   name: string;
   size: string;
-  type: 'pdf' | 'image' | 'doc' | 'code';
+  type: 'pdf' | 'image' | 'doc' | 'code' | 'audio';
   url: string;
   uploaded_by: string;
   uploaded_at: string;
@@ -319,4 +319,111 @@ export interface ClassMemberInfo {
   user_id: string;
   name: string;
   member_role: 'student' | 'assistant';
+}
+
+export interface GuardianGradeEntry {
+  title: string;
+  kind: 'اختبار' | 'واجب';
+  score: number;
+  max_score: number;
+  status: string;
+}
+
+export interface GuardianReport {
+  report_code: string;
+  student_id: string;
+  student_name: string;
+  avg_quiz_score: number;
+  completed_quizzes: number;
+  submitted_assignments: number;
+  points: number;
+  streak_days: number;
+  classes_count: number;
+  recent_grades: GuardianGradeEntry[];
+  updated_at: string;
+}
+
+export type CallType = 'audio' | 'video';
+export type CallStatus = 'ringing' | 'accepted' | 'rejected' | 'ended' | 'missed';
+
+export interface CallSession {
+  id: string;
+  caller_id: string;
+  caller_name: string;
+  callee_id: string;
+  callee_name: string;
+  participants: string[];
+  call_type: CallType;
+  status: CallStatus;
+  offer: { type: string; sdp: string };
+  answer?: { type: string; sdp: string };
+  created_at: string;
+  updated_at: string;
+}
+
+export type LiveAttendanceStatus = 'present' | 'late' | 'absent';
+
+export interface LiveAttendanceRecord {
+  session_id: string;
+  user_id: string;
+  user_name: string;
+  status: LiveAttendanceStatus;
+  checked_at?: string;
+}
+
+export interface VerifiedCertificate {
+  cert_code: string;
+  student_id: string;
+  student_name: string;
+  title: string;
+  issuer_name: string;
+  points: number;
+  streak_days: number;
+  issued_at: string;
+  updated_at: string;
+}
+
+export interface ChatPresence {
+  user_id: string;
+  is_online: boolean;
+  typing_to: string;
+  updated_at: string;
+}
+
+export type PollScopeType = 'community' | 'class';
+
+export interface PollVoteItem {
+  user_id: string;
+  option_index: number;
+  updated_at: string;
+}
+
+export interface PollItem {
+  id: string;
+  scope_type: PollScopeType;
+  scope_id: string;
+  creator_id: string;
+  creator_name: string;
+  question: string;
+  options: string[];
+  created_at: string;
+  votes?: PollVoteItem[];
+}
+
+export type ClassResourceKind = 'book' | 'summary' | 'worksheet' | 'link' | 'video';
+
+export interface ClassResource {
+  id: string;
+  class_id: string;
+  uploader_id: string;
+  uploader_name: string;
+  title: string;
+  unit_name: string;
+  kind: ClassResourceKind;
+  description?: string;
+  file_url?: string;
+  file_name?: string;
+  file_size?: string;
+  external_url?: string;
+  created_at: string;
 }

@@ -32,6 +32,9 @@ import {
   QuizQuestionType, QuizAnswerValue, QuizAttempt, QuestionFeedbackItem,
   Post, PostComment, Story, LiveSession, DirectMessage, Course, NotificationItem,
   ContentReport, ContactInfo, FollowRequestItem, ClassMemberInfo,
+  GuardianGradeEntry, GuardianReport, CallSession, CallStatus, CallType, LiveAttendanceRecord, LiveAttendanceStatus,
+  VerifiedCertificate, ChatPresence, PollScopeType, PollItem, PollVoteItem,
+  ClassResource, ClassResourceKind,
 } from '../types';
 
 /* ------------------------------------------------------------------ */
@@ -338,9 +341,56 @@ export async function searchContacts(meId: string, q = ''): Promise<ContactInfo[
 /* Files                                                               */
 /* ------------------------------------------------------------------ */
 
-export interface UploadedFile { url: string; name: string; size: string; type: 'pdf' | 'image' | 'doc' | 'code'; }
+export interface UploadedFile { url: string; name: string; size: string; type: 'pdf' | 'image' | 'doc' | 'code' | 'audio'; }
 
-export async function uploadFile(userId: string, file: File, folder: string): Promise<UploadedFile> {
+async function compressImageFile(file: File): Promise<File> {
+  if (
+    typeof document === 'undefined' ||
+    !file.type.startsWith('image/') ||
+    file.type === 'image/gif' ||
+    file.type === 'image/svg+xml' ||
+    file.size <= 300 * 1024
+  ) {
+    return file;
+  }
+  try {
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('image_load_failed'));
+        el.src = objectUrl;
+      });
+      const maxDim = 1600;
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) return file;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      const targetW = Math.max(1, Math.round(w * scale));
+      const targetH = Math.max(1, Math.round(h * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return file;
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+      const blob = await new Promise<Blob | null>(resolve =>
+        canvas.toBlob(b => resolve(b), 'image/jpeg', 0.82),
+      );
+      if (!blob || blob.size >= file.size) return file;
+      const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
+      return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  } catch {
+    return file;
+  }
+}
+
+export async function uploadFile(userId: string, rawFile: File, folder: string): Promise<UploadedFile> {
+  const file = await compressImageFile(rawFile);
   if (file.size > 10 * 1024 * 1024) throw new Error('حجم الملف أكبر من 10 ميجابايت');
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
   const storagePath = `nemvia/${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -349,7 +399,9 @@ export async function uploadFile(userId: string, file: File, folder: string): Pr
     await uploadBytes(storageRef, file, { contentType: file.type || undefined });
     const publicUrl = await getDownloadURL(storageRef);
     const kb = file.size / 1024;
-    const type: UploadedFile['type'] = ext === 'pdf' ? 'pdf'
+    const isAudio = file.type.startsWith('audio/') || ['webm', 'ogg', 'mp3', 'wav', 'm4a', 'aac', 'opus'].includes(ext);
+    const type: UploadedFile['type'] = isAudio ? 'audio'
+      : ext === 'pdf' ? 'pdf'
       : ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext) ? 'image'
       : ['ts', 'js', 'py', 'java', 'html', 'css', 'sql', 'txt'].includes(ext) ? 'code' : 'doc';
     return {
@@ -390,6 +442,7 @@ export interface AppData {
   reports: ContentReport[];
   contacts: ContactInfo[];
   classMembers: ClassMemberInfo[];
+  myClassIds: string[];
   followingIds: string[];
   followerIds: string[];
   followRequests: FollowRequestItem[];
@@ -879,19 +932,26 @@ export async function loadAll(me: Profile): Promise<AppData> {
     }))
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
+  const myClassIds = [...new Set([
+    ...classes.filter(c => c.teacher_id === me.id).map(c => c.id),
+    ...memberRows.filter(r => r.user_id === me.id).map(r => String(r.class_id)),
+  ])];
+
   return {
     classes, schools, ministries, myOrgIds, orgMembers,
     courses, lessons, quizzes, assignments, submissions, posts, stories, liveSessions,
-    messages, notifications, reports, contacts, classMembers, followingIds, followerIds, followRequests,
+    messages, notifications, reports, contacts, classMembers, myClassIds, followingIds, followerIds, followRequests,
   };
 }
 
 function attachmentOf(url: string, name: string | null, by: string, at: string, nm: (id: string) => string) {
   const fname = name || url.split('/').pop() || 'ملف';
   const ext = (fname.split('.').pop() || '').toLowerCase();
-  const type = ext === 'pdf' ? 'pdf' : ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext) ? 'image'
+  const type = ['webm', 'ogg', 'mp3', 'wav', 'm4a', 'aac', 'opus'].includes(ext) ? 'audio'
+    : ext === 'pdf' ? 'pdf'
+    : ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext) ? 'image'
     : ['ts', 'js', 'py', 'java', 'html', 'css', 'sql', 'txt'].includes(ext) ? 'code' : 'doc';
-  return { id: url, name: fname, size: '', type: type as 'pdf' | 'image' | 'doc' | 'code', url, uploaded_by: nm(by), uploaded_at: at };
+  return { id: url, name: fname, size: '', type: type as 'pdf' | 'image' | 'doc' | 'code' | 'audio', url, uploaded_by: nm(by), uploaded_at: at };
 }
 
 /* ------------------------------------------------------------------ */
@@ -900,7 +960,6 @@ function attachmentOf(url: string, name: string | null, by: string, at: string, 
 
 export function subscribeRealtimeUpdates(uid: string, onChange: () => void): () => void {
   const unsubs: Array<() => void> = [];
-  let initialBatch = 0;
 
   const watch = (path: string, q: any) => {
     let first = true;
@@ -909,7 +968,6 @@ export function subscribeRealtimeUpdates(uid: string, onChange: () => void): () 
       () => {
         if (first) {
           first = false;
-          initialBatch += 1;
           return;
         }
         onChange();
@@ -923,17 +981,144 @@ export function subscribeRealtimeUpdates(uid: string, onChange: () => void): () 
     unsubs.push(u);
   };
 
-  watch('direct_messages', query(collection(db, 'direct_messages'), where('participants', 'array-contains', uid)));
-  watch('class_messages', query(collection(db, 'class_messages'), where('class_id', '!=', '')));
-  watch('notifications', query(collection(db, 'notifications'), where('user_id', '==', uid)));
   watch('live_sessions', query(collection(db, 'live_sessions'), where('status', 'in', ['scheduled', 'live', 'ended'])));
   watch('posts', query(collection(db, 'posts'), where('visibility', 'in', ['public', 'followers'])));
   watch('assignments', query(collection(db, 'assignments'), where('total_points', '>=', 1)));
   watch('quizzes', query(collection(db, 'quizzes'), where('is_published', 'in', [true, false])));
 
-  void initialBatch;
   return () => {
     unsubs.forEach(u => u());
+  };
+}
+
+export function subscribeRealtimeMessagesAndNotifications(
+  uid: string,
+  getLookup: () => {
+    me: Profile | null;
+    contacts: ContactInfo[];
+    spaceTitles: Map<string, string>;
+  },
+  callbacks: {
+    onDirectMessages: (dms: DirectMessage[]) => void;
+    onClassMessages: (cms: DirectMessage[]) => void;
+    onNotifications: (notifs: NotificationItem[]) => void;
+  },
+): () => void {
+  const resolveActor = (actorId: string) => {
+    const { me, contacts } = getLookup();
+    if (me && actorId === me.id) return { name: me.display_name, role: me.role };
+    const hit = contacts.find(c => c.id === actorId);
+    return { name: hit?.name || 'مستخدم', role: (hit?.role as AppRole) || 'student' };
+  };
+
+  let firstDm = true;
+  const unsubDm = onSnapshot(
+    query(collection(db, 'direct_messages'), where('participants', 'array-contains', uid), limit(500)),
+    snap => {
+      if (firstDm) {
+        firstDm = false;
+        return;
+      }
+      const mapped: DirectMessage[] = snap.docs.map(d => {
+        const r = mapDoc(d);
+        const sender = resolveActor(r.sender_id);
+        const recipient = resolveActor(r.recipient_id);
+        return {
+          id: r.id,
+          sender_id: r.sender_id,
+          sender_name: sender.name,
+          sender_role: sender.role,
+          recipient_id: r.recipient_id,
+          recipient_name: recipient.name,
+          body: r.body || '',
+          attachment: r.attachment_url
+            ? attachmentOf(r.attachment_url, r.attachment_name || null, r.sender_id, toIso(r.created_at), id => resolveActor(id).name)
+            : undefined,
+          reactions: {},
+          created_at: toIso(r.created_at),
+          read_at: r.read_at || undefined,
+        };
+      });
+      callbacks.onDirectMessages(mapped);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'direct_messages');
+      }
+    },
+  );
+
+  let firstCm = true;
+  const unsubCm = onSnapshot(
+    query(collection(db, 'class_messages'), where('class_id', '!=', ''), limit(500)),
+    snap => {
+      if (firstCm) {
+        firstCm = false;
+        return;
+      }
+      const { spaceTitles } = getLookup();
+      const mapped: DirectMessage[] = snap.docs.map(d => {
+        const r = mapDoc(d);
+        const sender = resolveActor(r.sender_id);
+        return {
+          id: r.id,
+          sender_id: r.sender_id,
+          sender_name: sender.name,
+          sender_role: sender.role,
+          recipient_id: r.class_id,
+          recipient_name: spaceTitles.get(r.class_id) || '',
+          channel_id: r.class_id,
+          body: r.body || '',
+          attachment: r.attachment_url
+            ? attachmentOf(r.attachment_url, r.attachment_name || null, r.sender_id, toIso(r.created_at), id => resolveActor(id).name)
+            : undefined,
+          reactions: {},
+          created_at: toIso(r.created_at),
+        };
+      });
+      callbacks.onClassMessages(mapped);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'class_messages');
+      }
+    },
+  );
+
+  let firstNotif = true;
+  const unsubNotif = onSnapshot(
+    query(collection(db, 'notifications'), where('user_id', '==', uid), limit(50)),
+    snap => {
+      if (firstNotif) {
+        firstNotif = false;
+        return;
+      }
+      const mapped: NotificationItem[] = snap.docs
+        .map(d => {
+          const r = mapDoc(d);
+          return {
+            id: r.id,
+            title: r.payload?.title || 'إشعار',
+            body: r.payload?.body || '',
+            kind: (['academic', 'social', 'live', 'grade'].includes(r.kind) ? r.kind : 'academic') as NotificationItem['kind'],
+            created_at: toIso(r.created_at),
+            read: !!r.read_at,
+          };
+        })
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      callbacks.onNotifications(mapped);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'notifications');
+      }
+    },
+  );
+
+  return () => {
+    unsubDm();
+    unsubCm();
+    unsubNotif();
   };
 }
 
@@ -2093,6 +2278,12 @@ export async function deleteOwnAccount() {
       ['class_members', 'user_id'],
       ['follows', 'follower_id'],
       ['follows', 'followed_id'],
+      ['question_bank', 'teacher_id'],
+      ['guardian_reports', 'student_id'],
+      ['live_attendance', 'user_id'],
+      ['certificates', 'student_id'],
+      ['polls', 'creator_id'],
+      ['class_resources', 'uploader_id'],
     ] as const;
 
     for (const [colName, field] of ownedCollections) {
@@ -2104,6 +2295,7 @@ export async function deleteOwnAccount() {
       deleteDoc(doc(db, 'profiles', uid)).catch(() => {}),
       deleteDoc(doc(db, 'users_private', uid)).catch(() => {}),
       deleteDoc(doc(db, 'admins', uid)).catch(() => {}),
+      deleteDoc(doc(db, 'chat_presence', uid)).catch(() => {}),
     ]);
 
     await user.delete();
@@ -2113,5 +2305,854 @@ export async function deleteOwnAccount() {
       throw new Error('لتأكيد الحذف النهائي، يرجى تسجيل الخروج والدخول مجدداً ثم الضغط على حذف الحساب.');
     }
     throw new Error(err?.message || 'تعذّر حذف الحساب');
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Cloud Question Bank                                                 */
+/* ------------------------------------------------------------------ */
+
+export interface CloudQuestionBankRecord {
+  id: string;
+  teacher_id: string;
+  subject: string;
+  q_type: QuizQuestionType;
+  question: QuizQuestion;
+  created_at: string;
+}
+
+export async function listCloudQuestionBank(teacherId: string): Promise<CloudQuestionBankRecord[]> {
+  if (!teacherId) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'question_bank'), where('teacher_id', '==', teacherId), limit(250)),
+    );
+    return snap.docs
+      .map(d => {
+        const r = mapDoc(d);
+        return {
+          id: r.id,
+          teacher_id: String(r.teacher_id || teacherId),
+          subject: String(r.subject || 'عام'),
+          q_type: (r.q_type as QuizQuestionType) || 'mcq',
+          question: r.question as QuizQuestion,
+          created_at: toIso(r.created_at),
+        };
+      })
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  } catch {
+    return [];
+  }
+}
+
+export async function saveQuestionsToCloudBank(
+  teacherId: string,
+  subject: string,
+  questions: QuizQuestion[],
+): Promise<CloudQuestionBankRecord[]> {
+  if (!teacherId || !questions.length) return [];
+  const cleanSubject = (subject || 'عام').trim().slice(0, 120) || 'عام';
+  const created: CloudQuestionBankRecord[] = [];
+  for (const q of questions) {
+    const text = (q.question || '').trim().slice(0, 4000);
+    if (!text) continue;
+    const qType: QuizQuestionType = q.type || 'mcq';
+    const docRef = doc(collection(db, 'question_bank'));
+    const normalizedQ: QuizQuestion = {
+      ...q,
+      id: q.id || docRef.id,
+      type: qType,
+      question: text,
+      topic: (q.topic || cleanSubject).slice(0, 120),
+      options: Array.isArray(q.options) ? q.options.map(String) : [],
+      correctOptionIndex: Number(q.correctOptionIndex ?? 0),
+      explanation: (q.explanation || '').slice(0, 1500),
+      points: Math.max(1, Math.round(Number(q.points) || 1)),
+    };
+    try {
+      await setDoc(docRef, {
+        teacher_id: teacherId,
+        subject: (normalizedQ.topic || cleanSubject).slice(0, 120),
+        q_type: qType,
+        question: normalizedQ,
+        created_at: serverTimestamp(),
+      });
+      created.push({
+        id: docRef.id,
+        teacher_id: teacherId,
+        subject: normalizedQ.topic || cleanSubject,
+        q_type: qType,
+        question: normalizedQ,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      /* keep going */
+    }
+  }
+  return created;
+}
+
+export async function deleteCloudQuestionBankItem(itemId: string): Promise<void> {
+  if (!itemId) return;
+  try {
+    await deleteDoc(doc(db, 'question_bank', itemId));
+  } catch {
+    /* ignore */
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Guardian / Parent Read-Only Portal                                  */
+/* ------------------------------------------------------------------ */
+
+function makeGuardianCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = 'GRD';
+  for (let i = 0; i < 7; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+export async function fetchMyGuardianReport(studentId: string): Promise<GuardianReport | null> {
+  if (!studentId) return null;
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'guardian_reports'), where('student_id', '==', studentId), limit(1)),
+    );
+    if (snap.empty) return null;
+    const r = mapDoc(snap.docs[0]);
+    return {
+      report_code: String(r.report_code || r.id),
+      student_id: String(r.student_id || studentId),
+      student_name: String(r.student_name || 'طالب'),
+      avg_quiz_score: Number(r.avg_quiz_score ?? 0),
+      completed_quizzes: Number(r.completed_quizzes ?? 0),
+      submitted_assignments: Number(r.submitted_assignments ?? 0),
+      points: Number(r.points ?? 0),
+      streak_days: Number(r.streak_days ?? 0),
+      classes_count: Number(r.classes_count ?? 0),
+      recent_grades: Array.isArray(r.recent_grades) ? (r.recent_grades as GuardianGradeEntry[]) : [],
+      updated_at: toIso(r.updated_at),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function publishGuardianReport(
+  me: Profile,
+  summaryInput: {
+    classesCount: number;
+    quizzes: Quiz[];
+    assignments: Assignment[];
+    submissions: Submission[];
+    existingCode?: string;
+    rotateCode?: boolean;
+  },
+): Promise<GuardianReport> {
+  const completedQuizzes = summaryInput.quizzes.filter(q => q.attempted);
+  const mySubmissions = summaryInput.submissions.filter(s => s.student_id === me.id);
+
+  const recentGrades: GuardianGradeEntry[] = [];
+  let pctSum = 0;
+  let pctCount = 0;
+
+  completedQuizzes.forEach(q => {
+    const maxScore = Math.max(1, q.questions.reduce((s, qq) => s + (qq.points || 1), 0));
+    const score = Number(q.myScore ?? 0);
+    pctSum += Math.min(100, Math.round((score / maxScore) * 100));
+    pctCount += 1;
+    recentGrades.push({
+      title: String(q.title || 'اختبار').slice(0, 80),
+      kind: 'اختبار',
+      score,
+      max_score: maxScore,
+      status: q.needsManualGrading ? 'بانتظار مراجعة المعلم' : 'مكتمل',
+    });
+  });
+
+  summaryInput.assignments.forEach(a => {
+    const sub = mySubmissions.find(s => s.assignment_id === a.id);
+    if (!sub) return;
+    const maxScore = Math.max(1, Number(a.total_points) || 20);
+    const hasGrade = sub.grade !== undefined && sub.grade !== null;
+    if (hasGrade) {
+      pctSum += Math.min(100, Math.round((Number(sub.grade) / maxScore) * 100));
+      pctCount += 1;
+    }
+    recentGrades.push({
+      title: String(a.title || 'واجب').slice(0, 80),
+      kind: 'واجب',
+      score: hasGrade ? Number(sub.grade) : 0,
+      max_score: maxScore,
+      status: hasGrade ? 'مرصود الدرجة' : 'تم التسليم',
+    });
+  });
+
+  const avgScore = pctCount > 0 ? Math.round(pctSum / pctCount) : 0;
+  const trimmedGrades = recentGrades.slice(0, 15);
+  const oldCode = summaryInput.existingCode?.trim().toUpperCase();
+  const code = !summaryInput.rotateCode && oldCode && oldCode.length >= 8 ? oldCode : makeGuardianCode();
+
+  if (summaryInput.rotateCode && oldCode && oldCode !== code) {
+    await deleteDoc(doc(db, 'guardian_reports', oldCode)).catch(() => {});
+  }
+
+  const payload = {
+    report_code: code,
+    student_id: me.id,
+    student_name: me.display_name.slice(0, 80),
+    avg_quiz_score: Math.max(0, Math.min(100, avgScore)),
+    completed_quizzes: completedQuizzes.length,
+    submitted_assignments: mySubmissions.length,
+    points: Math.max(0, Math.round(Number(me.points) || 0)),
+    streak_days: Math.max(0, Math.round(Number(me.streakDays) || 0)),
+    classes_count: Math.max(0, Math.round(Number(summaryInput.classesCount) || 0)),
+    recent_grades: trimmedGrades,
+    updated_at: serverTimestamp(),
+  };
+
+  await setDoc(doc(db, 'guardian_reports', code), payload);
+
+  return {
+    ...payload,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export async function revokeGuardianReport(reportCode: string): Promise<void> {
+  const clean = reportCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  if (!clean) return;
+  await deleteDoc(doc(db, 'guardian_reports', clean));
+}
+
+export async function fetchGuardianReportByCode(code: string): Promise<GuardianReport | null> {
+  const clean = (code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  if (clean.length < 8 || clean.length > 16) return null;
+  try {
+    const snap = await getDoc(doc(db, 'guardian_reports', clean));
+    if (!snap.exists()) return null;
+    const r = snap.data() as Row;
+    return {
+      report_code: String(r.report_code || clean),
+      student_id: String(r.student_id || ''),
+      student_name: String(r.student_name || 'طالب NEMVIA'),
+      avg_quiz_score: Number(r.avg_quiz_score ?? 0),
+      completed_quizzes: Number(r.completed_quizzes ?? 0),
+      submitted_assignments: Number(r.submitted_assignments ?? 0),
+      points: Number(r.points ?? 0),
+      streak_days: Number(r.streak_days ?? 0),
+      classes_count: Number(r.classes_count ?? 0),
+      recent_grades: Array.isArray(r.recent_grades) ? (r.recent_grades as GuardianGradeEntry[]) : [],
+      updated_at: toIso(r.updated_at),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Cloud Live Attendance                                               */
+/* ------------------------------------------------------------------ */
+
+export async function listLiveAttendance(sessionId: string): Promise<LiveAttendanceRecord[]> {
+  if (!sessionId) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'live_attendance'), where('session_id', '==', sessionId)),
+    );
+    return snap.docs.map(d => {
+      const r = d.data() as Row;
+      return {
+        session_id: String(r.session_id || sessionId),
+        user_id: String(r.user_id || ''),
+        user_name: String(r.user_name || 'طالب'),
+        status: (['present', 'late', 'absent'].includes(r.status) ? r.status : 'present') as LiveAttendanceStatus,
+        checked_at: r.checked_at ? String(r.checked_at) : undefined,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function upsertLiveAttendance(record: LiveAttendanceRecord): Promise<void> {
+  if (!record.session_id || !record.user_id) return;
+  const docId = `${record.session_id}_${record.user_id}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+  const payload: Record<string, any> = {
+    session_id: record.session_id.slice(0, 128),
+    user_id: record.user_id.slice(0, 128),
+    user_name: (record.user_name || 'مستخدم').slice(0, 80),
+    status: record.status,
+    updated_at: serverTimestamp(),
+  };
+  if (record.checked_at) payload.checked_at = record.checked_at.slice(0, 64);
+  try {
+    await setDoc(doc(db, 'live_attendance', docId), payload);
+  } catch {
+    /* keep local cache fallback seamless */
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* WebRTC 1-on-1 Call Signaling                                        */
+/* ------------------------------------------------------------------ */
+
+function mapCallDoc(id: string, r: Row): CallSession {
+  return {
+    id,
+    caller_id: String(r.caller_id || ''),
+    caller_name: String(r.caller_name || 'مستخدم'),
+    callee_id: String(r.callee_id || ''),
+    callee_name: String(r.callee_name || 'مستخدم'),
+    participants: Array.isArray(r.participants) ? r.participants.map(String) : [],
+    call_type: r.call_type === 'video' ? 'video' : 'audio',
+    status: (['ringing', 'accepted', 'rejected', 'ended', 'missed'].includes(r.status) ? r.status : 'ended') as CallStatus,
+    offer: (r.offer && typeof r.offer === 'object' ? r.offer : { type: 'offer', sdp: '' }) as { type: string; sdp: string },
+    answer: r.answer && typeof r.answer === 'object' ? (r.answer as { type: string; sdp: string }) : undefined,
+    created_at: toIso(r.created_at),
+    updated_at: toIso(r.updated_at),
+  };
+}
+
+export async function createCallOffer(params: {
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  callType: CallType;
+  offer: { type: string; sdp: string };
+}): Promise<string> {
+  const callRef = doc(collection(db, 'calls'));
+  try {
+    await setDoc(callRef, {
+      caller_id: params.callerId,
+      caller_name: (params.callerName || 'مستخدم').slice(0, 80),
+      callee_id: params.calleeId,
+      callee_name: (params.calleeName || 'مستخدم').slice(0, 80),
+      participants: [params.callerId, params.calleeId],
+      call_type: params.callType,
+      status: 'ringing',
+      offer: { type: String(params.offer.type || 'offer'), sdp: String(params.offer.sdp || '') },
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+    return callRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, 'calls');
+  }
+}
+
+export async function acceptCallWithAnswer(
+  callId: string,
+  answer: { type: string; sdp: string },
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'calls', callId), {
+      status: 'accepted',
+      answer: { type: String(answer.type || 'answer'), sdp: String(answer.sdp || '') },
+      updated_at: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `calls/${callId}`);
+  }
+}
+
+export async function updateCallStatus(
+  callId: string,
+  status: Extract<CallStatus, 'rejected' | 'ended' | 'missed'>,
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'calls', callId), {
+      status,
+      updated_at: serverTimestamp(),
+    });
+  } catch {
+    /* ignore if already ended */
+  }
+}
+
+export async function addCallIceCandidate(
+  callId: string,
+  senderId: string,
+  candidate: Record<string, any>,
+): Promise<void> {
+  try {
+    await addDoc(collection(db, 'calls', callId, 'candidates'), {
+      sender_id: senderId,
+      candidate,
+      created_at: serverTimestamp(),
+    });
+  } catch {
+    /* ignore non-fatal ICE write */
+  }
+}
+
+export function subscribeIncomingCalls(
+  uid: string,
+  onIncoming: (call: CallSession | null) => void,
+): () => void {
+  if (!uid) return () => {};
+  return onSnapshot(
+    query(collection(db, 'calls'), where('participants', 'array-contains', uid), limit(20)),
+    snap => {
+      const nowMs = Date.now();
+      const activeRinging = snap.docs
+        .map(d => mapCallDoc(d.id, d.data() as Row))
+        .filter(c => c.callee_id === uid && c.status === 'ringing')
+        .filter(c => nowMs - new Date(c.created_at).getTime() < 90 * 1000)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+      onIncoming(activeRinging || null);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'calls');
+      }
+    },
+  );
+}
+
+export function subscribeCallSession(
+  callId: string,
+  onUpdate: (call: CallSession | null) => void,
+): () => void {
+  if (!callId) return () => {};
+  return onSnapshot(
+    doc(db, 'calls', callId),
+    snap => {
+      if (!snap.exists()) {
+        onUpdate(null);
+        return;
+      }
+      onUpdate(mapCallDoc(snap.id, snap.data() as Row));
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.GET, `calls/${callId}`);
+      }
+    },
+  );
+}
+
+export function subscribeCallCandidates(
+  callId: string,
+  myUid: string,
+  onRemoteCandidate: (cand: RTCIceCandidateInit) => void,
+): () => void {
+  if (!callId) return () => {};
+  const seen = new Set<string>();
+  return onSnapshot(
+    collection(db, 'calls', callId, 'candidates'),
+    snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added') return;
+        if (seen.has(change.doc.id)) return;
+        seen.add(change.doc.id);
+        const r = change.doc.data() as Row;
+        if (r.sender_id !== myUid && r.candidate) {
+          onRemoteCandidate(r.candidate as RTCIceCandidateInit);
+        }
+      });
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, `calls/${callId}/candidates`);
+      }
+    },
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* QR-Verified Academic Certificates                                   */
+/* ------------------------------------------------------------------ */
+
+function makeCertificateCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = 'CERT';
+  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+export async function issueVerifiedCertificate(params: {
+  student: Profile;
+  title?: string;
+  issuerName?: string;
+  existingCode?: string;
+}): Promise<VerifiedCertificate> {
+  const oldCode = (params.existingCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  const code = oldCode.length >= 8 && oldCode.length <= 16 ? oldCode : makeCertificateCode();
+  const nowIso = new Date().toISOString();
+  const payload = {
+    cert_code: code,
+    student_id: params.student.id,
+    student_name: params.student.display_name.slice(0, 80),
+    title: (params.title || 'شهادة التفوق والمثابرة الأكاديمية — منصة NEMVIA').trim().slice(0, 140),
+    issuer_name: (params.issuerName || 'محمد جمال نعمه — إدارة منصة NEMVIA').trim().slice(0, 80),
+    points: Math.max(0, Math.round(Number(params.student.points) || 0)),
+    streak_days: Math.max(0, Math.round(Number(params.student.streakDays) || 0)),
+    issued_at: nowIso,
+    updated_at: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(doc(db, 'certificates', code), payload);
+    return {
+      ...payload,
+      updated_at: nowIso,
+    };
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `certificates/${code}`);
+  }
+}
+
+export async function fetchVerifiedCertificate(code: string): Promise<VerifiedCertificate | null> {
+  const clean = (code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  if (clean.length < 8 || clean.length > 16) return null;
+  try {
+    const snap = await getDoc(doc(db, 'certificates', clean));
+    if (!snap.exists()) return null;
+    const r = snap.data() as Row;
+    return {
+      cert_code: String(r.cert_code || clean),
+      student_id: String(r.student_id || ''),
+      student_name: String(r.student_name || 'طالب NEMVIA'),
+      title: String(r.title || 'شهادة إنجاز أكاديمية'),
+      issuer_name: String(r.issuer_name || 'منصة NEMVIA التعليمية'),
+      points: Number(r.points ?? 0),
+      streak_days: Number(r.streak_days ?? 0),
+      issued_at: String(r.issued_at || toIso(r.updated_at)),
+      updated_at: toIso(r.updated_at),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function revokeVerifiedCertificate(code: string): Promise<void> {
+  const clean = (code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+  if (!clean) return;
+  await deleteDoc(doc(db, 'certificates', clean));
+}
+
+/* ------------------------------------------------------------------ */
+/* Chat Online & Typing Presence                                       */
+/* ------------------------------------------------------------------ */
+
+export async function updateChatPresence(
+  uid: string,
+  state: { is_online: boolean; typing_to?: string },
+): Promise<void> {
+  if (!uid) return;
+  try {
+    await setDoc(doc(db, 'chat_presence', uid), {
+      user_id: uid,
+      is_online: Boolean(state.is_online),
+      typing_to: (state.typing_to || '').slice(0, 128),
+      updated_at: serverTimestamp(),
+    });
+  } catch {
+    /* non-fatal presence update */
+  }
+}
+
+export function subscribeChatPresence(
+  onUpdate: (map: Record<string, ChatPresence>) => void,
+): () => void {
+  return onSnapshot(
+    query(collection(db, 'chat_presence'), where('is_online', 'in', [true, false]), limit(250)),
+    snap => {
+      const next: Record<string, ChatPresence> = {};
+      snap.docs.forEach(d => {
+        const r = d.data() as Row;
+        const uid = String(r.user_id || d.id);
+        next[uid] = {
+          user_id: uid,
+          is_online: Boolean(r.is_online),
+          typing_to: String(r.typing_to || ''),
+          updated_at: toIso(r.updated_at),
+        };
+      });
+      onUpdate(next);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'chat_presence');
+      }
+    },
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Interactive Polls & Per-User Atomic Votes                           */
+/* ------------------------------------------------------------------ */
+
+export async function createPoll(params: {
+  scopeType: PollScopeType;
+  scopeId: string;
+  creatorId: string;
+  creatorName: string;
+  question: string;
+  options: string[];
+}): Promise<string> {
+  const cleanOptions = params.options.map(o => o.trim()).filter(Boolean).slice(0, 6);
+  if (cleanOptions.length < 2) throw new Error('أدخل خيارين على الأقل للتصويت.');
+  const pollRef = doc(collection(db, 'polls'));
+  try {
+    await setDoc(pollRef, {
+      scope_type: params.scopeType,
+      scope_id: params.scopeId.slice(0, 128),
+      creator_id: params.creatorId,
+      creator_name: (params.creatorName || 'مستخدم').slice(0, 80),
+      question: params.question.trim().slice(0, 300),
+      options: cleanOptions,
+      created_at: serverTimestamp(),
+    });
+    return pollRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, 'polls');
+  }
+}
+
+export async function castPollVote(pollId: string, userId: string, optionIndex: number): Promise<void> {
+  if (!pollId || !userId) return;
+  try {
+    await setDoc(doc(db, 'polls', pollId, 'votes', userId), {
+      user_id: userId,
+      option_index: Math.max(0, Math.min(5, Math.round(optionIndex))),
+      updated_at: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `polls/${pollId}/votes/${userId}`);
+  }
+}
+
+export async function deletePoll(pollId: string): Promise<void> {
+  if (!pollId) return;
+  try {
+    const votesSnap = await getDocs(collection(db, 'polls', pollId, 'votes'));
+    await Promise.all(votesSnap.docs.map(d => deleteDoc(d.ref).catch(() => {})));
+    await deleteDoc(doc(db, 'polls', pollId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `polls/${pollId}`);
+  }
+}
+
+export function subscribePolls(
+  scopeType: PollScopeType,
+  scopeId: string,
+  onUpdate: (polls: PollItem[]) => void,
+): () => void {
+  if (!scopeId) {
+    onUpdate([]);
+    return () => {};
+  }
+
+  let pollsList: PollItem[] = [];
+  const votesByPoll = new Map<string, PollVoteItem[]>();
+  const voteUnsubs = new Map<string, () => void>();
+
+  const emit = () => {
+    onUpdate(
+      pollsList
+        .map(p => ({ ...p, votes: votesByPoll.get(p.id) || [] }))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    );
+  };
+
+  const unsubPolls = onSnapshot(
+    query(
+      collection(db, 'polls'),
+      where('scope_type', '==', scopeType),
+      where('scope_id', '==', scopeId),
+      limit(30),
+    ),
+    snap => {
+      const nextIds = new Set<string>();
+      pollsList = snap.docs.map(d => {
+        const r = d.data() as Row;
+        nextIds.add(d.id);
+        return {
+          id: d.id,
+          scope_type: (r.scope_type === 'class' ? 'class' : 'community') as PollScopeType,
+          scope_id: String(r.scope_id || scopeId),
+          creator_id: String(r.creator_id || ''),
+          creator_name: String(r.creator_name || 'عضو'),
+          question: String(r.question || ''),
+          options: Array.isArray(r.options) ? r.options.map(String) : [],
+          created_at: toIso(r.created_at),
+        };
+      });
+
+      // Clean removed poll listeners
+      for (const [pid, unsub] of voteUnsubs.entries()) {
+        if (!nextIds.has(pid)) {
+          unsub();
+          voteUnsubs.delete(pid);
+          votesByPoll.delete(pid);
+        }
+      }
+
+      // Attach per-poll vote listeners
+      pollsList.forEach(p => {
+        if (voteUnsubs.has(p.id)) return;
+        const vUnsub = onSnapshot(
+          query(collection(db, 'polls', p.id, 'votes'), where('user_id', '!=', ''), limit(250)),
+          vSnap => {
+            votesByPoll.set(
+              p.id,
+              vSnap.docs.map(vd => {
+                const vr = vd.data() as Row;
+                return {
+                  user_id: String(vr.user_id || vd.id),
+                  option_index: Number(vr.option_index ?? 0),
+                  updated_at: toIso(vr.updated_at),
+                };
+              }),
+            );
+            emit();
+          },
+          () => {},
+        );
+        voteUnsubs.set(p.id, vUnsub);
+      });
+
+      emit();
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'polls');
+      }
+    },
+  );
+
+  return () => {
+    unsubPolls();
+    voteUnsubs.forEach(u => u());
+    voteUnsubs.clear();
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Class Library Resources (Books, Summaries, Worksheets, Links)       */
+/* ------------------------------------------------------------------ */
+
+function mapClassResourceDoc(id: string, r: Row): ClassResource {
+  const kindRaw = String(r.kind || 'summary');
+  const kind: ClassResourceKind = (['book', 'summary', 'worksheet', 'link', 'video'].includes(kindRaw)
+    ? kindRaw
+    : 'summary') as ClassResourceKind;
+  return {
+    id,
+    class_id: String(r.class_id || ''),
+    uploader_id: String(r.uploader_id || ''),
+    uploader_name: String(r.uploader_name || 'معلم'),
+    title: String(r.title || ''),
+    unit_name: String(r.unit_name || 'موارد عامة'),
+    kind,
+    description: r.description ? String(r.description) : undefined,
+    file_url: r.file_url ? String(r.file_url) : undefined,
+    file_name: r.file_name ? String(r.file_name) : undefined,
+    file_size: r.file_size ? String(r.file_size) : undefined,
+    external_url: r.external_url ? String(r.external_url) : undefined,
+    created_at: toIso(r.created_at),
+  };
+}
+
+export function subscribeClassResources(
+  classId: string,
+  onUpdate: (items: ClassResource[]) => void,
+): () => void {
+  if (!classId) {
+    onUpdate([]);
+    return () => {};
+  }
+  return onSnapshot(
+    query(collection(db, 'class_resources'), where('class_id', '==', classId), limit(250)),
+    snap => {
+      const items = snap.docs
+        .map(d => mapClassResourceDoc(d.id, d.data() as Row))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      onUpdate(items);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'class_resources');
+      }
+    },
+  );
+}
+
+export async function createClassResource(params: {
+  classId: string;
+  uploaderId: string;
+  uploaderName: string;
+  title: string;
+  unitName: string;
+  kind: ClassResourceKind;
+  description?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: string;
+  externalUrl?: string;
+}): Promise<string> {
+  const title = params.title.trim().slice(0, 200);
+  const unitName = (params.unitName.trim() || 'موارد عامة').slice(0, 100);
+  if (!title) throw new Error('يرجى إدخال عنوان الملف أو الملزمة.');
+  if (!params.classId) throw new Error('معرّف الصف غير صالح.');
+
+  const payload: Record<string, any> = {
+    class_id: params.classId.slice(0, 128),
+    uploader_id: params.uploaderId.slice(0, 128),
+    uploader_name: (params.uploaderName.trim() || 'عضو الصف').slice(0, 80),
+    title,
+    unit_name: unitName,
+    kind: params.kind,
+    created_at: serverTimestamp(),
+  };
+  if (params.description?.trim()) payload.description = params.description.trim().slice(0, 2000);
+  if (params.fileUrl?.trim()) payload.file_url = params.fileUrl.trim().slice(0, 2000);
+  if (params.fileName?.trim()) payload.file_name = params.fileName.trim().slice(0, 255);
+  if (params.fileSize?.trim()) payload.file_size = params.fileSize.trim().slice(0, 40);
+  if (params.externalUrl?.trim()) payload.external_url = params.externalUrl.trim().slice(0, 2000);
+
+  const resRef = doc(collection(db, 'class_resources'));
+  try {
+    await setDoc(resRef, payload);
+    return resRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, 'class_resources');
+  }
+}
+
+export async function updateClassResource(
+  resourceId: string,
+  updates: {
+    title: string;
+    unitName: string;
+    kind: ClassResourceKind;
+    description?: string;
+    externalUrl?: string;
+  },
+): Promise<void> {
+  if (!resourceId) return;
+  const payload: Record<string, any> = {
+    title: updates.title.trim().slice(0, 200),
+    unit_name: (updates.unitName.trim() || 'موارد عامة').slice(0, 100),
+    kind: updates.kind,
+    description: (updates.description || '').trim().slice(0, 2000),
+    external_url: (updates.externalUrl || '').trim().slice(0, 2000),
+  };
+  try {
+    await updateDoc(doc(db, 'class_resources', resourceId), payload);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `class_resources/${resourceId}`);
+  }
+}
+
+export async function deleteClassResource(resourceId: string): Promise<void> {
+  if (!resourceId) return;
+  try {
+    await deleteDoc(doc(db, 'class_resources', resourceId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `class_resources/${resourceId}`);
   }
 }

@@ -610,6 +610,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentProfile, onNo
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('nemvia:replay-onboarding'))}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-[#1677c7] border border-sky-200 text-xs font-bold cursor-pointer"
+          >
+            <span>جولة التعريف بالتطبيق</span>
+          </button>
+          <button
+            type="button"
             onClick={handleExportLocalData}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold cursor-pointer"
           >

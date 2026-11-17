@@ -9,18 +9,28 @@ import {
   Check,
   X,
   Search,
+  QrCode,
+  Download,
+  Trophy,
+  Flame,
+  Award,
+  FolderOpen,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import {
   AppRole,
   Assignment,
   ClassItem,
   ClassMemberInfo,
+  ContactInfo,
   DirectMessage,
   MinistryItem,
   Quiz,
   SchoolItem,
 } from '../../types';
 import { InstitutionsView } from './InstitutionsView';
+import { ClassLibraryTab } from './ClassLibraryTab';
+import { UploadedFile } from '../../lib/api';
 import { getApiBaseUrl, isNativeApp, shareAppLink } from '../../lib/native';
 
 interface ClassesViewProps {
@@ -34,6 +44,7 @@ interface ClassesViewProps {
   assignments?: Assignment[];
   messages?: DirectMessage[];
   myOrgIds?: string[];
+  myClassIds?: string[];
   orgMembers?: ClassMemberInfo[];
   initialTab?: 'classes' | 'schools' | 'ministries';
   onAddClass: (cls: ClassItem) => void;
@@ -43,6 +54,10 @@ interface ClassesViewProps {
   onDeleteClass: (classId: string) => void;
   onArchiveClass: (classId: string, archived: boolean) => void;
   onRemoveMember: (classId: string, userId: string) => void;
+  contacts?: ContactInfo[];
+  currentUserPoints?: number;
+  currentUserStreak?: number;
+  onUpload?: (file: File, folder: string) => Promise<UploadedFile>;
   onCreateMinistry?: (m: { name: string; region: string; description: string; colorTheme?: string }) => Promise<boolean>;
   onCreateSchool?: (s: { name: string; stage: string; region: string; description: string; ministry_id?: string; colorTheme?: string }) => Promise<boolean>;
   onLinkSchoolToMinistry?: (school: SchoolItem, ministryId: string) => Promise<boolean>;
@@ -64,6 +79,7 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
   assignments = [],
   messages = [],
   myOrgIds = [],
+  myClassIds = [],
   orgMembers = [],
   initialTab = 'classes',
   onAddClass,
@@ -73,6 +89,10 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
   onDeleteClass,
   onArchiveClass,
   onRemoveMember,
+  contacts = [],
+  currentUserPoints = 0,
+  currentUserStreak = 0,
+  onUpload,
   onCreateMinistry = async () => false,
   onCreateSchool = async () => false,
   onLinkSchoolToMinistry = async () => false,
@@ -110,6 +130,15 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
 
   // Class Detail Modal
   const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null);
+  const [detailTab, setDetailTab] = useState<'overview' | 'library'>('overview');
+
+  const openClassDetail = (cls: ClassItem, tab: 'overview' | 'library' = 'overview') => {
+    setDetailTab(tab);
+    setSelectedClass(cls);
+  };
+
+  // QR Join Code Modal
+  const [qrModal, setQrModal] = useState<{ cls: ClassItem; dataUrl: string; joinUrl: string } | null>(null);
 
   const filteredClasses = classes.filter(c => {
     const matchesFilter = filterType === 'all' || c.class_type === filterType;
@@ -124,14 +153,33 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
     setTimeout(() => setCopiedCode(null), 2500);
   };
 
-  const handleShareInvite = (cls: ClassItem) => {
+  const resolvePublicAppUrl = () => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const appUrl = !isNativeApp() && origin.startsWith('http') ? origin : getApiBaseUrl() || origin;
+    return !isNativeApp() && origin.startsWith('http') ? origin : getApiBaseUrl() || origin || 'https://nemvia-app.onrender.com';
+  };
+
+  const handleShareInvite = (cls: ClassItem) => {
+    const appUrl = resolvePublicAppUrl();
+    const joinUrl = `${appUrl}/?join=${encodeURIComponent(cls.join_code)}`;
     void shareAppLink(
       `دعوة للانضمام إلى ${cls.title} — NEMVIA`,
-      `انضم إلى "${cls.title}" (${cls.subject}) على منصة NEMVIA باستخدام رمز الانضمام: ${cls.join_code}`,
-      appUrl,
+      `انضم إلى "${cls.title}" (${cls.subject}) على منصة NEMVIA باستخدام الرمز: ${cls.join_code}`,
+      joinUrl,
     );
+  };
+
+  const handleOpenQrModal = async (cls: ClassItem) => {
+    const joinUrl = `${resolvePublicAppUrl()}/?join=${encodeURIComponent(cls.join_code)}`;
+    try {
+      const dataUrl = await QRCode.toDataURL(joinUrl, {
+        width: 300,
+        margin: 2,
+        color: { dark: '#0f233a', light: '#ffffff' },
+      });
+      setQrModal({ cls, dataUrl, joinUrl });
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
@@ -364,11 +412,21 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenQrModal(cls)}
+                      className="px-2 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-[#0f233a] font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                      title="عرض رمز الاستجابة السريعة QR للانضمام الفوري"
+                    >
+                      <QrCode className="w-3.5 h-3.5 text-[#1677c7]" />
+                      <span>QR</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => handleShareInvite(cls)}
-                      className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                      className="px-2 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
                       title="مشاركة دعوة الصف"
                     >
                       <Share2 className="w-3 h-3" />
@@ -378,29 +436,40 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleCopyCode(cls.join_code)}
-                      className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-[#1677c7] font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                      className="px-2 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-[#1677c7] font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       {copiedCode === cls.join_code ? (
                         <>
                           <Check className="w-3 h-3 text-emerald-600" />
-                          <span className="text-emerald-700">تم النسخ</span>
+                          <span className="text-emerald-700">تم</span>
                         </>
                       ) : (
                         <>
                           <Copy className="w-3 h-3" />
-                          <span>نسخ الرمز</span>
+                          <span>نسخ</span>
                         </>
                       )}
                     </button>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setSelectedClass(cls)}
-                  className="w-full py-2 bg-slate-100 hover:bg-[#1677c7] hover:text-white text-slate-700 font-bold rounded-xl transition-all cursor-pointer text-center block"
-                >
-                  دخول الصف واستعراض المحتوى ←
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openClassDetail(cls, 'overview')}
+                    className="py-2 bg-slate-100 hover:bg-[#1677c7] hover:text-white text-slate-700 font-bold rounded-xl transition-all cursor-pointer text-center"
+                  >
+                    تفاصيل الصف
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openClassDetail(cls, 'library')}
+                    className="py-2 bg-sky-50 hover:bg-[#1677c7] hover:text-white text-[#1677c7] border border-sky-200 font-bold rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-1"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span>مكتبة الملفات</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -592,7 +661,49 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
               <p className="text-xs text-white/90 leading-relaxed">{selectedClass.description}</p>
             </div>
 
+            {/* Detail Tab Switcher */}
+            <div className="px-6 pt-3 pb-2 border-b border-slate-200 bg-slate-50/70 flex items-center gap-2 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setDetailTab('overview')}
+                className={`flex-1 py-2 px-3 rounded-xl cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5 ${
+                  detailTab === 'overview'
+                    ? 'bg-[#0f233a] text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>نظرة عامة والأعضاء</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailTab('library')}
+                className={`flex-1 py-2 px-3 rounded-xl cursor-pointer transition-colors inline-flex items-center justify-center gap-1.5 ${
+                  detailTab === 'library'
+                    ? 'bg-[#1677c7] text-white shadow-xs'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-sky-50'
+                }`}
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                <span>مكتبة الملفات والملازم</span>
+              </button>
+            </div>
+
             <div className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              {detailTab === 'library' ? (
+                <ClassLibraryTab
+                  cls={selectedClass}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName}
+                  currentRole={currentRole}
+                  isClassMember={
+                    myClassIds.includes(selectedClass.id) ||
+                    members.some(m => m.class_id === selectedClass.id && m.user_id === currentUserId)
+                  }
+                  onUpload={onUpload}
+                />
+              ) : (
+                <>
               <div className="grid grid-cols-2 gap-3 text-slate-700">
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 block font-bold">المعلم / المشرف</span>
@@ -609,7 +720,15 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
                   <span className="text-[11px] font-bold text-slate-700 block">رمز مشاركة الصف:</span>
                   <span className="font-mono font-black text-base text-[#0f233a]">{selectedClass.join_code}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenQrModal(selectedClass)}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-[#0f233a] font-bold rounded-lg cursor-pointer text-xs inline-flex items-center gap-1"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-[#1677c7]" />
+                    <span>رمز QR</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleShareInvite(selectedClass)}
@@ -644,6 +763,118 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Class Leaderboard & Weekly Achievements */}
+              {(() => {
+                const contactMap = new Map(contacts.map(c => [c.id, c]));
+                const classRows = members.filter(m => m.class_id === selectedClass.id);
+                const seen = new Set<string>();
+                const entries = classRows
+                  .filter(m => {
+                    if (seen.has(m.user_id)) return false;
+                    seen.add(m.user_id);
+                    return true;
+                  })
+                  .map(m => {
+                    const isMe = m.user_id === currentUserId;
+                    const c = contactMap.get(m.user_id);
+                    const points = isMe ? currentUserPoints : (c?.points ?? 0);
+                    const streak = isMe ? currentUserStreak : (c?.streakDays ?? 0);
+                    return {
+                      user_id: m.user_id,
+                      name: m.name || c?.name || 'عضو الصف',
+                      avatar_url: c?.avatar_url,
+                      isTeacher: m.user_id === selectedClass.teacher_id,
+                      isMe,
+                      points,
+                      streak,
+                    };
+                  });
+
+                if (!entries.some(e => e.user_id === selectedClass.teacher_id)) {
+                  const tc = contactMap.get(selectedClass.teacher_id);
+                  const isMeTeacher = selectedClass.teacher_id === currentUserId;
+                  entries.push({
+                    user_id: selectedClass.teacher_id,
+                    name: selectedClass.teacher_name,
+                    avatar_url: tc?.avatar_url,
+                    isTeacher: true,
+                    isMe: isMeTeacher,
+                    points: isMeTeacher ? currentUserPoints : (tc?.points ?? 0),
+                    streak: isMeTeacher ? currentUserStreak : (tc?.streakDays ?? 0),
+                  });
+                }
+
+                const studentBoard = entries
+                  .filter(e => !e.isTeacher || entries.length === 1)
+                  .sort((a, b) => b.points - a.points || b.streak - a.streak);
+
+                if (studentBoard.length === 0) return null;
+
+                return (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-50/70 to-sky-50/70 border border-amber-200/80 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-black text-slate-900 flex items-center gap-1.5 text-xs">
+                        <Trophy className="w-4 h-4 text-amber-500" />
+                        <span>لوحة شرف الصف والإنجازات الأسبوعية</span>
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">{studentBoard.length} مشارك</span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-60 overflow-y-auto pr-0.5">
+                      {studentBoard.slice(0, 12).map((row, idx) => {
+                        const rankBadge = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`;
+                        const achievementLabel =
+                          row.points >= 500 ? 'نجم الصف' : row.streak >= 5 ? 'مواظب' : row.points >= 150 ? 'متقدم' : '';
+                        return (
+                          <div
+                            key={row.user_id}
+                            className={`p-2 rounded-xl border flex items-center justify-between gap-2 ${
+                              row.isMe
+                                ? 'bg-white border-[#1677c7] shadow-xs'
+                                : idx < 3
+                                  ? 'bg-white/90 border-amber-200'
+                                  : 'bg-white/70 border-slate-200/80'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-6 text-center font-black text-xs shrink-0">{rankBadge}</span>
+                              {row.avatar_url ? (
+                                <img src={row.avatar_url} alt={row.name} className="w-7 h-7 rounded-full object-cover shrink-0 border border-slate-200" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-sky-100 text-[#0f233a] font-black text-[11px] flex items-center justify-center shrink-0">
+                                  {row.name.charAt(0)}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-900 truncate text-[11px]">
+                                  {row.name} {row.isMe && <span className="text-[#1677c7]">(أنت)</span>}
+                                </p>
+                                {achievementLabel && (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700">
+                                    <Award className="w-2.5 h-2.5" /> {achievementLabel}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 text-[11px] font-black">
+                              {row.streak > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-lg" title="أيام المواظبة">
+                                  <Flame className="w-3 h-3" /> {row.streak}
+                                </span>
+                              )}
+                              <span className="text-[#1677c7] bg-sky-50 px-2 py-0.5 rounded-lg tabular-nums">
+                                {row.points} XP
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {selectedClass.teacher_id === currentUserId && (
                 <div className="space-y-2">
@@ -686,6 +917,8 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
                   مغادرة الصف
                 </button>
               )}
+                </>
+              )}
             </div>
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 text-center">
@@ -694,6 +927,65 @@ export const ClassesView: React.FC<ClassesViewProps> = ({
                 className="w-full py-2 bg-[#0f233a] text-white font-bold rounded-xl text-xs cursor-pointer"
               >
                 إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* QR JOIN CODE MODAL */}
+      {qrModal && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setQrModal(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full border border-slate-200 shadow-2xl p-6 space-y-4 text-center animate-in zoom-in-95"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-right">
+                <span className="text-[11px] font-bold text-[#1677c7] block">انضمام سريع عبر الكاميرا</span>
+                <h3 className="font-black text-slate-900 text-sm line-clamp-1">{qrModal.cls.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQrModal(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center gap-2">
+              <img src={qrModal.dataUrl} alt={`QR ${qrModal.cls.join_code}`} className="w-52 h-52 rounded-xl bg-white p-2 border border-slate-100" />
+              <span className="font-mono font-black text-base text-[#0f233a] tracking-widest">
+                {qrModal.cls.join_code}
+              </span>
+              <p className="text-[11px] text-slate-500">
+                امسح الرمز بكاميرا الهاتف لينضم الطالب إلى الصف مباشرة
+              </p>
+            </div>
+
+            <div className="flex gap-2 text-xs">
+              <a
+                href={qrModal.dataUrl}
+                download={`NEMVIA-QR-${qrModal.cls.join_code}.png`}
+                className="flex-1 py-2.5 bg-[#1677c7] hover:bg-[#125fa0] text-white font-bold rounded-xl inline-flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-4 h-4" />
+                <span>تنزيل الصورة</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(qrModal.joinUrl);
+                  setCopiedCode(qrModal.cls.join_code);
+                  setTimeout(() => setCopiedCode(null), 2000);
+                }}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <Copy className="w-4 h-4" />
+                <span>{copiedCode === qrModal.cls.join_code ? 'تم النسخ ✓' : 'نسخ الرابط'}</span>
               </button>
             </div>
           </div>

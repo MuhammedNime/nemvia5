@@ -1,33 +1,38 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { onAuthStateChanged, sendEmailVerification, signOut, type User } from 'firebase/auth';
 import { Home, BookOpen, Users, MessageSquare, Loader2, CheckCircle2, AlertCircle, X, ShieldAlert, MailCheck } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { lazyWithRetry } from './lib/lazyWithRetry';
 import { AppHeader } from './components/navigation/AppHeader';
 import { AppSidebar } from './components/navigation/AppSidebar';
 import { HubDrawerModal } from './components/navigation/HubDrawerModal';
 import { HomeView } from './components/views/HomeView';
 import { LegalContent } from './components/views/LegalView';
 
-const ClassesView = lazy(() => import('./components/views/ClassesView').then(m => ({ default: m.ClassesView })));
-const CoursesView = lazy(() => import('./components/views/CoursesView').then(m => ({ default: m.CoursesView })));
-const AssignmentsView = lazy(() => import('./components/views/AssignmentsView').then(m => ({ default: m.AssignmentsView })));
-const CommunityView = lazy(() => import('./components/views/CommunityView').then(m => ({ default: m.CommunityView })));
-const LiveClassroomView = lazy(() => import('./components/views/LiveClassroomView').then(m => ({ default: m.LiveClassroomView })));
-const MessagesView = lazy(() => import('./components/views/MessagesView').then(m => ({ default: m.MessagesView })));
-const StudyToolsView = lazy(() => import('./components/views/StudyToolsView').then(m => ({ default: m.StudyToolsView })));
-const AIStudioView = lazy(() => import('./components/views/AIStudioView').then(m => ({ default: m.AIStudioView })));
-const AdminView = lazy(() => import('./components/views/AdminView').then(m => ({ default: m.AdminView })));
-const ProfileView = lazy(() => import('./components/views/ProfileView').then(m => ({ default: m.ProfileView })));
-const LegalView = lazy(() => import('./components/views/LegalView').then(m => ({ default: m.LegalView })));
-const SettingsView = lazy(() => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView })));
-const CalendarView = lazy(() => import('./components/views/CalendarView').then(m => ({ default: m.CalendarView })));
-const GradebookView = lazy(() => import('./components/views/GradebookView').then(m => ({ default: m.GradebookView })));
+const ClassesView = lazyWithRetry(() => import('./components/views/ClassesView').then(m => ({ default: m.ClassesView })));
+const CoursesView = lazyWithRetry(() => import('./components/views/CoursesView').then(m => ({ default: m.CoursesView })));
+const AssignmentsView = lazyWithRetry(() => import('./components/views/AssignmentsView').then(m => ({ default: m.AssignmentsView })));
+const CommunityView = lazyWithRetry(() => import('./components/views/CommunityView').then(m => ({ default: m.CommunityView })));
+const LiveClassroomView = lazyWithRetry(() => import('./components/views/LiveClassroomView').then(m => ({ default: m.LiveClassroomView })));
+const MessagesView = lazyWithRetry(() => import('./components/views/MessagesView').then(m => ({ default: m.MessagesView })));
+const StudyToolsView = lazyWithRetry(() => import('./components/views/StudyToolsView').then(m => ({ default: m.StudyToolsView })));
+const AIStudioView = lazyWithRetry(() => import('./components/views/AIStudioView').then(m => ({ default: m.AIStudioView })));
+const AdminView = lazyWithRetry(() => import('./components/views/AdminView').then(m => ({ default: m.AdminView })));
+const ProfileView = lazyWithRetry(() => import('./components/views/ProfileView').then(m => ({ default: m.ProfileView })));
+const LegalView = lazyWithRetry(() => import('./components/views/LegalView').then(m => ({ default: m.LegalView })));
+const SettingsView = lazyWithRetry(() => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView })));
+const CalendarView = lazyWithRetry(() => import('./components/views/CalendarView').then(m => ({ default: m.CalendarView })));
+const GradebookView = lazyWithRetry(() => import('./components/views/GradebookView').then(m => ({ default: m.GradebookView })));
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { AuthScreen } from './components/auth/AuthScreen';
+import { GuardianPortalModal } from './components/views/GuardianPortalModal';
+import { CertificateVerifyModal } from './components/views/CertificateVerifyModal';
+import { OnboardingModal } from './components/OnboardingModal';
 import { ReportModal, ReportTarget } from './components/ReportModal';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import { AppInstallPromptBanner } from './components/pwa/AppInstallPromptBanner';
 import { PullToRefresh } from './components/PullToRefresh';
+import { CallOverlay, OutgoingCallRequest } from './components/CallOverlay';
 import { auth } from './lib/firebase';
 import * as api from './lib/api';
 import { AppData } from './lib/api';
@@ -41,13 +46,13 @@ import {
   showBrowserNotification,
 } from './lib/notifications';
 import {
-  Profile, ClassItem, SchoolItem, Lesson, Submission, Quiz, QuizQuestion, QuizAnswerValue, QuestionFeedbackItem, Post, Story, DirectMessage,
+  Profile, ClassItem, SchoolItem, Lesson, Submission, Quiz, QuizQuestion, QuizAnswerValue, QuestionFeedbackItem, Post, Story, DirectMessage, CallSession, CallType,
 } from './types';
 
 const EMPTY: AppData = {
   classes: [], schools: [], ministries: [], myOrgIds: [], orgMembers: [],
   courses: [], lessons: [], quizzes: [], assignments: [], submissions: [], posts: [],
-  stories: [], liveSessions: [], messages: [], notifications: [], reports: [], contacts: [], classMembers: [],
+  stories: [], liveSessions: [], messages: [], notifications: [], reports: [], contacts: [], classMembers: [], myClassIds: [],
   followingIds: [], followerIds: [], followRequests: [],
 };
 
@@ -70,13 +75,27 @@ export default function App() {
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [liveAlert, setLiveAlert] = useState<{ title: string; body: string; targetSection?: string } | null>(null);
   const [confirmState, setConfirmState] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [incomingCall, setIncomingCall] = useState<CallSession | null>(null);
+  const [outgoingCall, setOutgoingCall] = useState<OutgoingCallRequest | null>(null);
+  const [guardianRouteCode, setGuardianRouteCode] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return (new URLSearchParams(window.location.search).get('guardian') || '').trim().toUpperCase();
+  });
+  const [certRouteCode, setCertRouteCode] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return (new URLSearchParams(window.location.search).get('cert') || '').trim().toUpperCase();
+  });
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const profileRef = useRef<Profile | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const hydratedRef = useRef(false);
   const alertTimerRef = useRef<number | undefined>(undefined);
   const backExitTimeRef = useRef<number>(0);
+  const joinHandledRef = useRef<string | null>(null);
+  const dataRef = useRef<AppData>(EMPTY);
   const uiStateRef = useRef({ activeSection: 'home', hubOpen: false, searchOpen: false, hasReport: false, hasConfirm: false });
   profileRef.current = profile;
+  dataRef.current = data;
   uiStateRef.current = {
     activeSection,
     hubOpen,
@@ -137,7 +156,9 @@ export default function App() {
     const onVisibility = () => {
       if (!document.hidden) void refreshRef.current();
     };
+    const onReplayOnboarding = () => setOnboardingOpen(true);
     window.addEventListener('nemvia:open-section', onOpenSection);
+    window.addEventListener('nemvia:replay-onboarding', onReplayOnboarding);
     window.addEventListener('popstate', onPopState);
     window.addEventListener('keydown', onKey);
     document.addEventListener('visibilitychange', onVisibility);
@@ -164,6 +185,7 @@ export default function App() {
     });
     return () => {
       window.removeEventListener('nemvia:open-section', onOpenSection);
+      window.removeEventListener('nemvia:replay-onboarding', onReplayOnboarding);
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
@@ -372,6 +394,92 @@ export default function App() {
     let timer: number | undefined;
     const bump = () => { window.clearTimeout(timer); timer = window.setTimeout(() => { void refresh(); }, 180); };
     const unsubRealtime = api.subscribeRealtimeUpdates(profile.id, bump);
+
+    const mergeIncomingMessages = (nextSlice: DirectMessage[], isChannel: boolean) => {
+      const me = profileRef.current;
+      if (!me) return;
+      if (hydratedRef.current) {
+        for (const m of nextSlice) {
+          const key = `msg:${m.id}`;
+          if (!seenIdsRef.current.has(key)) {
+            if (m.sender_id !== me.id) {
+              triggerIncomingAlert({
+                id: key,
+                title: m.channel_id ? `رسالة جديدة في ${m.recipient_name || 'الصف'}` : `رسالة جديدة من ${m.sender_name}`,
+                body: m.body || (m.attachment ? `مرفق: ${m.attachment.name}` : 'رسالة جديدة'),
+                chime: 'message',
+                targetSection: 'messages',
+              });
+            } else {
+              seenIdsRef.current.add(key);
+            }
+          }
+        }
+      }
+      setData(prev => {
+        const preserved = prev.messages.filter(m => (isChannel ? !m.channel_id : Boolean(m.channel_id)));
+        const merged = [...preserved, ...nextSlice].sort((a, b) => a.created_at.localeCompare(b.created_at));
+        return { ...prev, messages: merged };
+      });
+    };
+
+    const unsubStreams = api.subscribeRealtimeMessagesAndNotifications(
+      profile.id,
+      () => {
+        const curData = dataRef.current;
+        const spaceTitles = new Map<string, string>([
+          ...curData.classes.map(c => [c.id, c.title] as [string, string]),
+          ...curData.schools.map(s => [s.id, s.name] as [string, string]),
+          ...curData.ministries.map(m => [m.id, m.name] as [string, string]),
+        ]);
+        return { me: profileRef.current, contacts: curData.contacts, spaceTitles };
+      },
+      {
+        onDirectMessages: dms => mergeIncomingMessages(dms, false),
+        onClassMessages: cms => mergeIncomingMessages(cms, true),
+        onNotifications: notifs => {
+          if (hydratedRef.current) {
+            for (const n of notifs) {
+              const key = `notif:${n.id}`;
+              if (!seenIdsRef.current.has(key)) {
+                if (!n.read) {
+                  const target = n.kind === 'grade' ? 'courses' : n.kind === 'live' ? 'live' : n.kind === 'social' ? 'community' : 'assignments';
+                  triggerIncomingAlert({
+                    id: key,
+                    title: n.title,
+                    body: n.body,
+                    chime: n.kind === 'grade' ? 'grade' : 'alert',
+                    targetSection: target,
+                  });
+                } else {
+                  seenIdsRef.current.add(key);
+                }
+              }
+            }
+          }
+          setData(prev => ({ ...prev, notifications: notifs }));
+        },
+      },
+    );
+
+    const unsubCalls = api.subscribeIncomingCalls(profile.id, call => {
+      setIncomingCall(call);
+      if (call) {
+        const key = `call:${call.id}`;
+        if (!seenIdsRef.current.has(key)) {
+          seenIdsRef.current.add(key);
+          if (document.hidden) {
+            showBrowserNotification(
+              call.call_type === 'video' ? `مكالمة فيديو واردة من ${call.caller_name}` : `مكالمة صوتية واردة من ${call.caller_name}`,
+              'افتح تطبيق NEMVIA للرد على المكالمة',
+              key,
+              'messages',
+            );
+          }
+        }
+      }
+    });
+
     const poll = window.setInterval(() => {
       if (!document.hidden) void refresh();
     }, 15000);
@@ -379,8 +487,94 @@ export default function App() {
       window.clearTimeout(timer);
       window.clearInterval(poll);
       unsubRealtime();
+      unsubStreams();
+      unsubCalls();
     };
-  }, [authReady, profile?.id, refresh]);
+  }, [authReady, profile?.id, refresh, triggerIncomingAlert]);
+
+  // First-launch Onboarding tour & online chat presence heartbeat
+  useEffect(() => {
+    if (!profile?.id) return;
+    try {
+      const seenKey = `nemvia-onboarding-v1-${profile.id}`;
+      if (!localStorage.getItem(seenKey)) {
+        setOnboardingOpen(true);
+      }
+    } catch {
+      /* ignore */
+    }
+    void api.updateChatPresence(profile.id, { is_online: true, typing_to: '' });
+    const ping = window.setInterval(() => {
+      if (!document.hidden) {
+        void api.updateChatPresence(profile.id, { is_online: true, typing_to: '' });
+      }
+    }, 90000);
+    const onUnload = () => {
+      void api.updateChatPresence(profile.id, { is_online: false, typing_to: '' });
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      window.clearInterval(ping);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, [profile?.id]);
+
+  // Android App Links & Deep Links (?join=CODE | ?guardian=CODE | ?cert=CODE)
+  useEffect(() => {
+    const onDeepLink = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ join?: string; guardian?: string; cert?: string }>).detail || {};
+      if (detail.guardian) {
+        setGuardianRouteCode(detail.guardian);
+        return;
+      }
+      if (detail.cert) {
+        setCertRouteCode(detail.cert);
+        return;
+      }
+      if (detail.join) {
+        if (profileRef.current) {
+          void api.joinClass(detail.join).then(async ok => {
+            if (ok) {
+              await refresh();
+              setActiveSection('classes');
+              notify('تم الانضمام للصف تلقائياً بنجاح ✓');
+            } else {
+              notify('رمز الدعوة أو QR غير صالح أو الصف مؤرشف.', false);
+            }
+          });
+        } else {
+          try { sessionStorage.setItem('nemvia-pending-join', detail.join); } catch { /* ignore */ }
+        }
+      }
+    };
+    window.addEventListener('nemvia:deep-link', onDeepLink);
+    return () => window.removeEventListener('nemvia:deep-link', onDeepLink);
+  }, [refresh, setActiveSection, notify]);
+
+  // الانضمام التلقائي للصف عند مسح رمز QR أو فتح رابط ?join=CODE
+  useEffect(() => {
+    if (!profile || loading || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    let pendingJoin = '';
+    try { pendingJoin = (sessionStorage.getItem('nemvia-pending-join') || '').trim().toUpperCase(); } catch { /* ignore */ }
+    const joinParam = (params.get('join') || pendingJoin || '').trim().toUpperCase();
+    if (!joinParam || joinHandledRef.current === joinParam) return;
+    joinHandledRef.current = joinParam;
+    try { sessionStorage.removeItem('nemvia-pending-join'); } catch { /* ignore */ }
+    void api.joinClass(joinParam).then(async ok => {
+      params.delete('join');
+      const qs = params.toString();
+      const nextUrl = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
+      window.history.replaceState(null, '', nextUrl);
+      if (ok) {
+        await refresh();
+        setActiveSection('classes');
+        notify('تم الانضمام للصف تلقائياً بنجاح ✓');
+      } else {
+        notify('رمز الدعوة أو QR غير صالح أو الصف مؤرشف.', false);
+      }
+    });
+  }, [profile?.id, loading, refresh, notify, setActiveSection]);
 
   useEffect(() => {
     if (profile?.role === 'admin') api.adminStats().then(setStats);
@@ -548,6 +742,9 @@ export default function App() {
   const handleSetRole = (id: string, role: 'student' | 'teacher' | 'admin') => run(() => api.setUserRole(id, role), 'تم تغيير الدور');
   const handleSetSuspended = (id: string, v: boolean) => run(() => api.setSuspended(id, v), v ? 'تم إيقاف الحساب' : 'تم إلغاء الإيقاف');
   const handleSignOut = async () => {
+    if (profileRef.current?.id) {
+      await api.updateChatPresence(profileRef.current.id, { is_online: false, typing_to: '' });
+    }
     await signOut(auth);
     setActiveSection('home');
   };
@@ -573,6 +770,42 @@ export default function App() {
           </div>
           <LegalContent tab={publicTab} />
         </div>
+      </div>
+    );
+  }
+
+  /* ---------------- Public Guardian Report Route ---------------- */
+  if (guardianRouteCode) {
+    return (
+      <div className="min-h-[100dvh] bg-slate-100">
+        <GuardianPortalModal
+          initialCode={guardianRouteCode}
+          onClose={() => {
+            setGuardianRouteCode('');
+            const params = new URLSearchParams(window.location.search);
+            params.delete('guardian');
+            const qs = params.toString();
+            window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+          }}
+        />
+      </div>
+    );
+  }
+
+  /* ---------------- Public QR Certificate Verification Route ---------------- */
+  if (certRouteCode) {
+    return (
+      <div className="min-h-[100dvh] bg-slate-100">
+        <CertificateVerifyModal
+          initialCode={certRouteCode}
+          onClose={() => {
+            setCertRouteCode('');
+            const params = new URLSearchParams(window.location.search);
+            params.delete('cert');
+            const qs = params.toString();
+            window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+          }}
+        />
       </div>
     );
   }
@@ -746,9 +979,14 @@ export default function App() {
             <ClassesView currentRole={role} currentUserId={uid} currentUserName={profile.display_name}
               classes={data.classes} schools={data.schools} ministries={data.ministries}
               quizzes={data.quizzes} assignments={data.assignments} messages={data.messages}
-              myOrgIds={data.myOrgIds} orgMembers={data.orgMembers}
+              myOrgIds={data.myOrgIds} myClassIds={data.myClassIds} orgMembers={data.orgMembers}
               initialTab={section === 'schools' ? 'schools' : section === 'ministries' ? 'ministries' : 'classes'}
-              members={data.classMembers} onAddClass={handleAddClass} onJoinClass={handleJoinClass}
+              members={data.classMembers}
+              contacts={data.contacts}
+              currentUserPoints={profile.points}
+              currentUserStreak={profile.streakDays}
+              onUpload={upload}
+              onAddClass={handleAddClass} onJoinClass={handleJoinClass}
               onLeaveClass={handleLeaveClass} onDeleteClass={handleDelete('classes', 'الصف')} onArchiveClass={handleArchiveClass}
               onRemoveMember={handleRemoveMember}
               onCreateMinistry={handleCreateMinistry} onCreateSchool={handleCreateSchool}
@@ -847,6 +1085,7 @@ export default function App() {
               onUpload={upload} onMarkRead={handleMarkDmRead}
               initialPeerId={chatPeerId}
               onClearInitialPeer={() => setChatPeerId(null)}
+              onStartCall={(calleeId: string, calleeName: string, callType: CallType) => setOutgoingCall({ calleeId, calleeName, callType })}
               onReport={(t: ReportTarget) => setReportTarget(t)} />
           )}
 
@@ -857,6 +1096,7 @@ export default function App() {
 
           {section === 'profile' && (
             <ProfileView profile={profile} email={firebaseUser.email || ''} classesCount={data.classes.length}
+              quizzes={data.quizzes} assignments={data.assignments} submissions={data.submissions}
               onSave={handleSaveProfile} onUpload={upload} onSignOut={handleSignOut} onDeleteAccount={handleDeleteAccount} />
           )}
 
@@ -958,6 +1198,26 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <CallOverlay
+        currentUserId={uid}
+        currentUserName={profile.display_name}
+        outgoingRequest={outgoingCall}
+        incomingCall={incomingCall}
+        onClearOutgoing={() => setOutgoingCall(null)}
+        onClearIncoming={() => setIncomingCall(null)}
+        onNotify={notify}
+      />
+
+      <OnboardingModal
+        open={onboardingOpen}
+        userName={profile.display_name}
+        onNavigate={setActiveSection}
+        onClose={() => {
+          setOnboardingOpen(false);
+          try { localStorage.setItem(`nemvia-onboarding-v1-${profile.id}`, '1'); } catch { /* ignore */ }
+        }}
+      />
 
       {toast && (
         <div className={`fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold flex items-center gap-2 text-white ${toast.ok ? 'bg-emerald-600' : 'bg-rose-600'}`}>

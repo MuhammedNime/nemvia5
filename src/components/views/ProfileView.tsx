@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
-import { Camera, Loader2, Lock, Globe, Flame, Star, LogOut, Trash2, AlertTriangle } from 'lucide-react';
-import { Profile } from '../../types';
-import { UploadedFile } from '../../lib/api';
+import React, { useEffect, useState } from 'react';
+import { Camera, Loader2, Lock, Globe, Flame, Star, LogOut, Trash2, AlertTriangle, ShieldCheck, Copy, Check, RefreshCw, Eye } from 'lucide-react';
+import { Assignment, GuardianReport, Profile, Quiz, Submission } from '../../types';
+import {
+  fetchMyGuardianReport,
+  publishGuardianReport,
+  revokeGuardianReport,
+  UploadedFile,
+} from '../../lib/api';
+import { getApiBaseUrl, isNativeApp } from '../../lib/native';
+import { GuardianPortalModal } from './GuardianPortalModal';
 import { updatePassword } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 
@@ -9,6 +16,9 @@ interface ProfileViewProps {
   profile: Profile;
   email: string;
   classesCount: number;
+  quizzes?: Quiz[];
+  assignments?: Assignment[];
+  submissions?: Submission[];
   onSave: (patch: { display_name: string; bio: string; visibility: 'public' | 'private'; avatar_url?: string }) => Promise<boolean>;
   onUpload: (f: File, folder: string) => Promise<UploadedFile>;
   onSignOut: () => void;
@@ -18,7 +28,18 @@ interface ProfileViewProps {
 const roleName = { student: 'طالب', teacher: 'معلم', admin: 'مؤسس / أدمن' } as const;
 const input = 'w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1677c7] focus:bg-white';
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ profile, email, classesCount, onSave, onUpload, onSignOut, onDeleteAccount }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({
+  profile,
+  email,
+  classesCount,
+  quizzes = [],
+  assignments = [],
+  submissions = [],
+  onSave,
+  onUpload,
+  onSignOut,
+  onDeleteAccount,
+}) => {
   const [name, setName] = useState(profile.display_name);
   const [bio, setBio] = useState(profile.bio);
   const [visibility, setVisibility] = useState<'public' | 'private'>(profile.visibility as 'public' | 'private');
@@ -30,7 +51,47 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, email, classe
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [guardianReport, setGuardianReport] = useState<GuardianReport | null>(null);
+  const [guardianBusy, setGuardianBusy] = useState(false);
+  const [guardianCopied, setGuardianCopied] = useState<'code' | 'link' | null>(null);
+  const [guardianPreviewOpen, setGuardianPreviewOpen] = useState(false);
   const hasPasswordProvider = Boolean(auth.currentUser?.providerData?.some(p => p.providerId === 'password'));
+
+  useEffect(() => {
+    void fetchMyGuardianReport(profile.id).then(setGuardianReport);
+  }, [profile.id]);
+
+  const handlePublishGuardian = async (rotateCode = false) => {
+    setGuardianBusy(true);
+    try {
+      const next = await publishGuardianReport(profile, {
+        classesCount,
+        quizzes,
+        assignments,
+        submissions,
+        existingCode: guardianReport?.report_code,
+        rotateCode,
+      });
+      setGuardianReport(next);
+    } finally {
+      setGuardianBusy(false);
+    }
+  };
+
+  const handleRevokeGuardian = async () => {
+    if (!guardianReport) return;
+    setGuardianBusy(true);
+    try {
+      await revokeGuardianReport(guardianReport.report_code);
+      setGuardianReport(null);
+    } finally {
+      setGuardianBusy(false);
+    }
+  };
+
+  const guardianShareUrl = guardianReport
+    ? `${(!isNativeApp() && typeof window !== 'undefined' && window.location.origin.startsWith('http') ? window.location.origin : getApiBaseUrl() || 'https://nemvia-app.onrender.com')}/?guardian=${encodeURIComponent(guardianReport.report_code)}`
+    : '';
 
   const pickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -106,6 +167,106 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, email, classe
         </div>
         <button type="submit" disabled={busy} className="w-full py-3 bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-60 text-white font-black rounded-xl text-sm cursor-pointer">حفظ التغييرات</button>
       </form>
+
+      {/* Guardian / Parent Read-Only Portal Sharing */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3 text-xs">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-0.5">
+            <h3 className="font-black text-slate-900 text-sm flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-[#1677c7]" />
+              <span>بوابة ولي الأمر (رمز متابعة آمن للقراءة فقط)</span>
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              أنشئ رمزاً سرياً يتيح لولي أمرك متابعة معدلك ودرجاتك وسلسلة المواظبة دون الوصول إلى رسائلك أو أي معلومات خاصة.
+            </p>
+          </div>
+        </div>
+
+        {guardianReport ? (
+          <div className="space-y-3 pt-1">
+            <div className="p-3 bg-sky-50/70 border border-sky-200 rounded-xl flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 block">رمز المتابعة الحالي:</span>
+                <span className="font-mono font-black text-base text-[#0f233a] tracking-widest" dir="ltr">
+                  {guardianReport.report_code}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(guardianReport.report_code);
+                    setGuardianCopied('code');
+                    setTimeout(() => setGuardianCopied(null), 2000);
+                  }}
+                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg font-bold text-[#1677c7] flex items-center gap-1 cursor-pointer"
+                >
+                  {guardianCopied === 'code' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{guardianCopied === 'code' ? 'نُسخ الرمز' : 'نسخ الرمز'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(guardianShareUrl);
+                    setGuardianCopied('link');
+                    setTimeout(() => setGuardianCopied(null), 2000);
+                  }}
+                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+                >
+                  {guardianCopied === 'link' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{guardianCopied === 'link' ? 'نُسخ الرابط' : 'نسخ الرابط'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuardianPreviewOpen(true)}
+                  className="px-2.5 py-1.5 bg-[#1677c7] text-white rounded-lg font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>معاينة</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={guardianBusy}
+                onClick={() => void handlePublishGuardian(false)}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
+              >
+                {guardianBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                <span>تحديث الدرجات الآن</span>
+              </button>
+              <button
+                type="button"
+                disabled={guardianBusy}
+                onClick={() => void handlePublishGuardian(true)}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold rounded-xl cursor-pointer"
+              >
+                توليد رمز جديد
+              </button>
+              <button
+                type="button"
+                disabled={guardianBusy}
+                onClick={() => void handleRevokeGuardian()}
+                className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 text-rose-700 font-bold rounded-xl cursor-pointer"
+              >
+                إيقاف المشاركة
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={guardianBusy}
+            onClick={() => void handlePublishGuardian(false)}
+            className="px-4 py-2.5 bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-50 text-white font-bold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            {guardianBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+            <span>إنشاء رمز متابعة لولي الأمر</span>
+          </button>
+        )}
+      </div>
 
       {hasPasswordProvider && (
         <form onSubmit={changePassword} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
@@ -191,6 +352,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, email, classe
             </div>
           </div>
         </div>
+      )}
+      {guardianPreviewOpen && guardianReport && (
+        <GuardianPortalModal
+          initialCode={guardianReport.report_code}
+          onClose={() => setGuardianPreviewOpen(false)}
+        />
       )}
     </div>
   );

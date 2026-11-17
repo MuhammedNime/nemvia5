@@ -27,10 +27,13 @@ import {
   UserPlus,
   Users,
   X,
+  BarChart2,
 } from 'lucide-react';
-import { AppRole, ContactInfo, FollowRequestItem, Post, PostComment, Story } from '../../types';
-import { UploadedFile } from '../../lib/api';
+import { AppRole, ContactInfo, FollowRequestItem, PollItem, Post, PostComment, Story } from '../../types';
+import * as api from '../../lib/api';
+import type { UploadedFile } from '../../lib/api';
 import type { ReportTarget } from '../ReportModal';
+import { PollCard, PollComposerModal } from '../PollCard';
 
 interface CommunityViewProps {
   currentRole: AppRole;
@@ -185,6 +188,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   const [membersFilter, setMembersFilter] = useState<MembersFilter>('all');
   const [memberSearch, setMemberSearch] = useState('');
   const [busyFollowId, setBusyFollowId] = useState<string | null>(null);
+
+  // Community live polls
+  const [communityPolls, setCommunityPolls] = useState<PollItem[]>([]);
+  const [showPollComposer, setShowPollComposer] = useState(false);
+
+  useEffect(() => {
+    return api.subscribePolls('community', 'community', setCommunityPolls);
+  }, []);
 
   const followingSet = useMemo(() => new Set(followingIds), [followingIds]);
   const followerSet = useMemo(() => new Set(followerIds), [followerIds]);
@@ -1056,6 +1067,15 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                       )}
                       <span>{uploadingMedia ? 'جاري الرفع...' : 'صورة / فيديو / ملف'}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPollComposer(true)}
+                      className="min-h-[38px] px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <BarChart2 className="w-3.5 h-3.5" />
+                      <span>+ استطلاع تصويت</span>
+                    </button>
                   </div>
 
                   <button
@@ -1068,6 +1088,19 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                   </button>
                 </div>
               </form>
+            </section>
+          )}
+
+          {sectionTab === 'feed' && communityPolls.length > 0 && (
+            <section className="space-y-3">
+              {communityPolls.map(poll => (
+                <PollCard
+                  key={poll.id}
+                  poll={poll}
+                  currentUserId={currentUserId}
+                  currentRole={currentRole}
+                />
+              ))}
             </section>
           )}
 
@@ -1524,6 +1557,15 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           </div>
         </>
       )}
+
+      <PollComposerModal
+        open={showPollComposer}
+        scopeType="community"
+        scopeId="community"
+        creatorId={currentUserId}
+        creatorName={currentUserName}
+        onClose={() => setShowPollComposer(false)}
+      />
     </div>
   );
 };

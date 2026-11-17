@@ -11,11 +11,12 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { Browser } from '@capacitor/browser';
-import { GraduationCap, AlertCircle, CheckCircle2, Loader2, Mail, Lock, User, ExternalLink } from 'lucide-react';
+import { GraduationCap, AlertCircle, CheckCircle2, Loader2, Mail, Lock, User, ExternalLink, ShieldCheck } from 'lucide-react';
 import { auth, googleProvider } from '../../lib/firebase';
 import { ensureOwnProfile } from '../../lib/api';
 import { ANDROID_AUTH_REDIRECT_URL, getRemoteAppBaseUrl, isNativeApp } from '../../lib/native';
 import { LegalContent } from '../views/LegalView';
+import { GuardianPortalModal } from '../views/GuardianPortalModal';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 function arabicAuthError(err: any): string {
@@ -68,8 +69,9 @@ export const AuthScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mobileCallbackUrl, setMobileCallbackUrl] = useState<string | null>(null);
-
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const guardianCodeParam = (searchParams?.get('guardian') || '').trim().toUpperCase();
+  const [guardianOpen, setGuardianOpen] = useState(Boolean(guardianCodeParam));
   const isMobileAuthHandoff = !isNativeApp() && searchParams?.get('mobile_auth') === '1';
   const handoffRole = (searchParams?.get('role') === 'teacher' ? 'teacher' : 'student') as 'student' | 'teacher';
 
@@ -470,10 +472,25 @@ export const AuthScreen: React.FC = () => {
           </div>
         )}
 
-        <div className="pt-2 border-t border-slate-100 flex justify-center">
+        <div className="pt-2 border-t border-slate-100 space-y-2.5 flex flex-col items-center">
+          <button
+            type="button"
+            onClick={() => setGuardianOpen(true)}
+            className="w-full py-2.5 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[#0f233a] font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <ShieldCheck className="w-4 h-4 text-[#1677c7]" />
+            <span>بوابة ولي الأمر (متابعة درجات الطالب بالرمز السري)</span>
+          </button>
           <PWAInstallButton />
         </div>
       </div>
+
+      {guardianOpen && (
+        <GuardianPortalModal
+          initialCode={guardianCodeParam}
+          onClose={() => setGuardianOpen(false)}
+        />
+      )}
     </div>
   );
 };

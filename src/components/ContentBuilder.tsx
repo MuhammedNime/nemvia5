@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Plus, Trash2, Paperclip, Loader2, Sparkles, BookmarkPlus, Library, Check, FileUp, FileText, Download, Image as ImageIcon } from 'lucide-react';
 import { ClassItem, Lesson, Quiz, QuizQuestion, QuizQuestionType } from '../types';
 import { UploadedFile } from '../lib/api';
 import { generateQuizQuestionsAI, GeneratedQuizHeader } from '../lib/ai';
 import { fileToBase64Payload, downloadQuizAsWordDoc, UploadedAIPayload } from '../lib/wordExport';
-import { BankQuestionItem, loadQuestionBank, saveQuestionsToBank } from '../lib/questionBank';
+import { BankQuestionItem, loadQuestionBank, saveQuestionsToBank, syncQuestionBankWithCloud } from '../lib/questionBank';
 
 const field = 'w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-[#1677c7] focus:bg-white';
 
@@ -139,6 +139,17 @@ export const QuizBuilderModal: React.FC<{
   const [bankItems, setBankItems] = useState<BankQuestionItem[]>(() => loadQuestionBank(userId));
   const [bankSelected, setBankSelected] = useState<string[]>([]);
   const [savedQIds, setSavedQIds] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    void syncQuestionBankWithCloud(userId).then(merged => {
+      if (active) setBankItems(merged);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   const toggleBankPick = (id: string) => {
     setBankSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));

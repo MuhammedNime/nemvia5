@@ -35,11 +35,25 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     }
   }
 
+  private isDynamicImportError(): boolean {
+    return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk [\d]+ failed/i.test(
+      this.state.message,
+    );
+  }
+
   private handleReset = () => {
+    if (this.isDynamicImportError()) {
+      window.location.reload();
+      return;
+    }
     this.setState({ hasError: false, message: '' });
   };
 
   private handleGoHome = () => {
+    if (this.isDynamicImportError()) {
+      window.location.reload();
+      return;
+    }
     this.setState({ hasError: false, message: '' });
     this.props.onGoHome?.();
   };
@@ -48,6 +62,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     if (!this.state.hasError) {
       return this.props.children;
     }
+
+    const isChunkErr = this.isDynamicImportError();
 
     return (
       <div
@@ -60,13 +76,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           </div>
 
           <div className="space-y-1.5">
-            <h2 className="text-lg font-black text-slate-900">حدث خطأ غير متوقع</h2>
+            <h2 className="text-lg font-black text-slate-900">
+              {isChunkErr ? 'تم تحديث ملفات المنصة' : 'حدث خطأ غير متوقع'}
+            </h2>
             <p className="text-xs text-slate-600 leading-relaxed">
-              واجهت هذه الشاشة خللاً مفاجئاً. يمكنك المحاولة مجدداً أو العودة للشاشة الرئيسية.
+              {isChunkErr
+                ? 'توفرت نسخة محدّثة من هذه الشاشة أو انقطع الاتصال مؤقتاً أثناء تحميلها. أعد التحميل للمتابعة.'
+                : 'واجهت هذه الشاشة خللاً مفاجئاً. يمكنك المحاولة مجدداً أو العودة للشاشة الرئيسية.'}
             </p>
           </div>
 
-          {this.state.message && (
+          {this.state.message && !isChunkErr && (
             <p
               dir="auto"
               className="text-[11px] font-mono text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-2.5 break-words"
@@ -76,7 +96,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           )}
 
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-            {this.props.onGoHome && (
+            {this.props.onGoHome && !isChunkErr && (
               <button
                 type="button"
                 onClick={this.handleGoHome}
@@ -88,11 +108,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             )}
             <button
               type="button"
-              onClick={this.props.onGoHome ? this.handleReset : () => window.location.reload()}
+              onClick={this.props.onGoHome && !isChunkErr ? this.handleReset : () => window.location.reload()}
               className="min-h-[44px] px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
             >
               <RotateCw className="w-4 h-4" />
-              <span>{this.props.onGoHome ? 'إعادة المحاولة' : 'إعادة تحميل التطبيق'}</span>
+              <span>{this.props.onGoHome && !isChunkErr ? 'إعادة المحاولة' : 'تحديث التطبيق الآن'}</span>
             </button>
           </div>
         </div>

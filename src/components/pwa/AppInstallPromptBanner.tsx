@@ -10,7 +10,8 @@ export const AppInstallPromptBanner: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [visible, setVisible] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const [apkAvailable, setApkAvailable] = useState(false);
+  const [apkAvailable, setApkAvailable] = useState(true);
+  const [apkUrl, setApkUrl] = useState<string>(resolveApiUrl('/download/nemvia.apk'));
 
   useEffect(() => {
     if (isInstalled || isNativeApp()) return;
@@ -24,8 +25,12 @@ export const AppInstallPromptBanner: React.FC = () => {
 
     fetch(resolveApiUrl('/api/health'))
       .then(r => r.json())
-      .then((d: { apkAvailable?: boolean }) => {
-        if (d?.apkAvailable) setApkAvailable(true);
+      .then((d: { apkAvailable?: boolean; apkUrl?: string }) => {
+        if (d?.apkAvailable === false) setApkAvailable(false);
+        else setApkAvailable(true);
+        if (d?.apkUrl) {
+          setApkUrl(d.apkUrl.startsWith('http') ? d.apkUrl : resolveApiUrl(d.apkUrl));
+        }
       })
       .catch(() => {});
 
@@ -74,7 +79,7 @@ export const AppInstallPromptBanner: React.FC = () => {
               <div>
                 <h4 className="font-black text-slate-900 text-sm">هل تريد تنزيل NEMVIA كتطبيق؟</h4>
                 <p className="text-slate-600 leading-relaxed mt-0.5">
-                  أضفه إلى شاشتك الرئيسية لتفتحه بسرعة وبواجهة تطبيق كاملة دون متصفح.
+                  أضفه إلى شاشتك الرئيسية أو حمّل تطبيق Android (APK) مباشرة على هاتفك.
                 </p>
               </div>
               <button
@@ -97,10 +102,10 @@ export const AppInstallPromptBanner: React.FC = () => {
                 <span>تثبيت التطبيق</span>
               </button>
 
-              {apkAvailable && (
+              {apkAvailable && !isIOS && (
                 <a
-                  href={resolveApiUrl('/download/nemvia.apk')}
-                  download="NEMVIA-v1.0.0.apk"
+                  href={apkUrl}
+                  download="NEMVIA.apk"
                   className="min-h-[40px] px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl inline-flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" />

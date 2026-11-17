@@ -228,6 +228,19 @@ export function initNativeAndroidShell(options: {
         /* ignore malformed callback */
       }
       options.onAuthDeepLink?.('signed_in');
+      return;
+    }
+
+    try {
+      const parsed = new URL(url);
+      const join = (parsed.searchParams.get('join') || '').trim().toUpperCase();
+      const guardian = (parsed.searchParams.get('guardian') || '').trim().toUpperCase();
+      const cert = (parsed.searchParams.get('cert') || '').trim().toUpperCase();
+      if (join || guardian || cert) {
+        window.dispatchEvent(new CustomEvent('nemvia:deep-link', { detail: { join, guardian, cert } }));
+      }
+    } catch {
+      /* ignore malformed deep link */
     }
   }).then(handle => {
     if (disposed) void handle.remove();

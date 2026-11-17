@@ -335,6 +335,134 @@ service cloud.firestore {
         data.created_at is timestamp;
     }
 
+    function isValidQuestionBankItem(data) {
+      return data.keys().hasAll(['teacher_id', 'subject', 'q_type', 'question', 'created_at']) &&
+        data.keys().hasOnly(['teacher_id', 'subject', 'q_type', 'question', 'created_at']) &&
+        data.teacher_id is string && data.teacher_id.size() >= 1 && data.teacher_id.size() <= 128 &&
+        data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120 &&
+        data.q_type in ['mcq', 'true_false', 'multi_select', 'short_answer', 'fill_blank', 'essay'] &&
+        data.question is map &&
+        'question' in data.question &&
+        data.question.question is string &&
+        data.question.question.size() >= 1 &&
+        data.question.question.size() <= 4000 &&
+        data.created_at is timestamp;
+    }
+
+    function isValidGuardianReport(data) {
+      return data.keys().hasAll(['report_code', 'student_id', 'student_name', 'avg_quiz_score', 'completed_quizzes', 'submitted_assignments', 'points', 'streak_days', 'classes_count', 'recent_grades', 'updated_at']) &&
+        data.keys().hasOnly(['report_code', 'student_id', 'student_name', 'avg_quiz_score', 'completed_quizzes', 'submitted_assignments', 'points', 'streak_days', 'classes_count', 'recent_grades', 'updated_at']) &&
+        data.report_code is string && data.report_code.size() >= 8 && data.report_code.size() <= 16 &&
+        data.student_id is string && data.student_id.size() >= 1 && data.student_id.size() <= 128 &&
+        data.student_name is string && data.student_name.size() >= 1 && data.student_name.size() <= 80 &&
+        data.avg_quiz_score is number && data.avg_quiz_score >= 0 && data.avg_quiz_score <= 100 &&
+        data.completed_quizzes is int && data.completed_quizzes >= 0 &&
+        data.submitted_assignments is int && data.submitted_assignments >= 0 &&
+        data.points is int && data.points >= 0 &&
+        data.streak_days is int && data.streak_days >= 0 &&
+        data.classes_count is int && data.classes_count >= 0 &&
+        data.recent_grades is list && data.recent_grades.size() <= 20 &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidCallSession(data) {
+      return data.keys().hasAll(['caller_id', 'caller_name', 'callee_id', 'callee_name', 'participants', 'call_type', 'status', 'offer', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly(['caller_id', 'caller_name', 'callee_id', 'callee_name', 'participants', 'call_type', 'status', 'offer', 'answer', 'created_at', 'updated_at']) &&
+        data.caller_id is string && data.caller_id.size() >= 1 && data.caller_id.size() <= 128 &&
+        data.caller_name is string && data.caller_name.size() >= 1 && data.caller_name.size() <= 80 &&
+        data.callee_id is string && data.callee_id.size() >= 1 && data.callee_id.size() <= 128 &&
+        data.callee_name is string && data.callee_name.size() >= 1 && data.callee_name.size() <= 80 &&
+        data.caller_id != data.callee_id &&
+        data.participants is list && data.participants.size() == 2 &&
+        data.participants[0] is string && data.participants[1] is string &&
+        data.call_type in ['audio', 'video'] &&
+        data.status in ['ringing', 'accepted', 'rejected', 'ended', 'missed'] &&
+        data.offer is map &&
+        (!('answer' in data) || data.answer is map) &&
+        data.created_at is timestamp &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidCallCandidate(data) {
+      return data.keys().hasAll(['sender_id', 'candidate', 'created_at']) &&
+        data.keys().hasOnly(['sender_id', 'candidate', 'created_at']) &&
+        data.sender_id is string && data.sender_id.size() >= 1 && data.sender_id.size() <= 128 &&
+        data.candidate is map &&
+        data.created_at is timestamp;
+    }
+
+    function isValidLiveAttendance(data) {
+      return data.keys().hasAll(['session_id', 'user_id', 'user_name', 'status', 'updated_at']) &&
+        data.keys().hasOnly(['session_id', 'user_id', 'user_name', 'status', 'checked_at', 'updated_at']) &&
+        data.session_id is string && data.session_id.size() >= 1 && data.session_id.size() <= 128 &&
+        data.user_id is string && data.user_id.size() >= 1 && data.user_id.size() <= 128 &&
+        data.user_name is string && data.user_name.size() >= 1 && data.user_name.size() <= 80 &&
+        data.status in ['present', 'late', 'absent'] &&
+        (!('checked_at' in data) || (data.checked_at is string && data.checked_at.size() <= 64)) &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidCertificate(data) {
+      return data.keys().hasAll(['cert_code', 'student_id', 'student_name', 'title', 'issuer_name', 'points', 'streak_days', 'issued_at', 'updated_at']) &&
+        data.keys().hasOnly(['cert_code', 'student_id', 'student_name', 'title', 'issuer_name', 'points', 'streak_days', 'issued_at', 'updated_at']) &&
+        data.cert_code is string && data.cert_code.size() >= 8 && data.cert_code.size() <= 16 &&
+        data.student_id is string && data.student_id.size() >= 1 && data.student_id.size() <= 128 &&
+        data.student_name is string && data.student_name.size() >= 1 && data.student_name.size() <= 80 &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+        data.issuer_name is string && data.issuer_name.size() >= 1 && data.issuer_name.size() <= 80 &&
+        data.points is int && data.points >= 0 &&
+        data.streak_days is int && data.streak_days >= 0 &&
+        data.issued_at is string && data.issued_at.size() >= 4 && data.issued_at.size() <= 64 &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidChatPresence(data) {
+      return data.keys().hasAll(['user_id', 'is_online', 'typing_to', 'updated_at']) &&
+        data.keys().hasOnly(['user_id', 'is_online', 'typing_to', 'updated_at']) &&
+        data.user_id is string && data.user_id.size() >= 1 && data.user_id.size() <= 128 &&
+        data.is_online is bool &&
+        data.typing_to is string && data.typing_to.size() <= 128 &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidPoll(data) {
+      return data.keys().hasAll(['scope_type', 'scope_id', 'creator_id', 'creator_name', 'question', 'options', 'created_at']) &&
+        data.keys().hasOnly(['scope_type', 'scope_id', 'creator_id', 'creator_name', 'question', 'options', 'created_at']) &&
+        data.scope_type in ['community', 'class'] &&
+        data.scope_id is string && data.scope_id.size() >= 1 && data.scope_id.size() <= 128 &&
+        data.creator_id is string && data.creator_id.size() >= 1 && data.creator_id.size() <= 128 &&
+        data.creator_name is string && data.creator_name.size() >= 1 && data.creator_name.size() <= 80 &&
+        data.question is string && data.question.size() >= 2 && data.question.size() <= 300 &&
+        data.options is list && data.options.size() >= 2 && data.options.size() <= 6 &&
+        data.options[0] is string && data.options[1] is string &&
+        data.created_at is timestamp;
+    }
+
+    function isValidPollVote(data) {
+      return data.keys().hasAll(['user_id', 'option_index', 'updated_at']) &&
+        data.keys().hasOnly(['user_id', 'option_index', 'updated_at']) &&
+        data.user_id is string && data.user_id.size() >= 1 && data.user_id.size() <= 128 &&
+        data.option_index is int && data.option_index >= 0 && data.option_index < 6 &&
+        data.updated_at is timestamp;
+    }
+
+    function isValidClassResource(data) {
+      return data.keys().hasAll(['class_id', 'uploader_id', 'uploader_name', 'title', 'unit_name', 'kind', 'created_at']) &&
+        data.keys().hasOnly(['class_id', 'uploader_id', 'uploader_name', 'title', 'unit_name', 'kind', 'description', 'file_url', 'file_name', 'file_size', 'external_url', 'created_at']) &&
+        data.class_id is string && data.class_id.size() >= 1 && data.class_id.size() <= 128 &&
+        data.uploader_id is string && data.uploader_id.size() >= 1 && data.uploader_id.size() <= 128 &&
+        data.uploader_name is string && data.uploader_name.size() >= 1 && data.uploader_name.size() <= 80 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.unit_name is string && data.unit_name.size() >= 1 && data.unit_name.size() <= 100 &&
+        data.kind in ['book', 'summary', 'worksheet', 'link', 'video'] &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 2000)) &&
+        (!('file_url' in data) || (data.file_url is string && data.file_url.size() <= 2000)) &&
+        (!('file_name' in data) || (data.file_name is string && data.file_name.size() <= 255)) &&
+        (!('file_size' in data) || (data.file_size is string && data.file_size.size() <= 40)) &&
+        (!('external_url' in data) || (data.external_url is string && data.external_url.size() <= 2000)) &&
+        data.created_at is timestamp;
+    }
+
     // Health / Connection check doc
     match /test/connection {
       allow get: if true;
@@ -768,6 +896,207 @@ service cloud.firestore {
       );
       allow delete: if isValidId(reqId) && isSignedIn() && (
         isAdmin() || existing().requester_id == request.auth.uid || existing().target_id == request.auth.uid
+      );
+    }
+
+    // 24. Cloud Question Bank (Teacher Owned)
+    match /question_bank/{itemId} {
+      allow get: if isValidId(itemId) && isSignedIn() && (isAdmin() || existing().teacher_id == request.auth.uid);
+      allow list: if isSignedIn() && (existing().teacher_id == request.auth.uid || isAdmin());
+      allow create: if isValidId(itemId) && isVerified() && isValidQuestionBankItem(incoming()) &&
+        incoming().teacher_id == request.auth.uid &&
+        incoming().created_at == request.time;
+      allow update: if isValidId(itemId) && isVerified() && isValidQuestionBankItem(incoming()) && (
+        isAdmin() ||
+        (existing().teacher_id == request.auth.uid &&
+         incoming().teacher_id == existing().teacher_id &&
+         incoming().created_at == existing().created_at)
+      );
+      allow delete: if isValidId(itemId) && (isAdmin() || (isSignedIn() && existing().teacher_id == request.auth.uid));
+    }
+
+    // 25. Guardian Reports (Exact Secret-Code Get Only; No Public List)
+    match /guardian_reports/{reportCode} {
+      allow get: if isValidId(reportCode) && reportCode.size() >= 8 && reportCode.size() <= 16;
+      allow list: if isSignedIn() && (existing().student_id == request.auth.uid || isAdmin());
+      allow create: if isValidId(reportCode) && reportCode.size() >= 8 && reportCode.size() <= 16 &&
+        isVerified() && isValidGuardianReport(incoming()) &&
+        incoming().report_code == reportCode &&
+        incoming().student_id == request.auth.uid &&
+        incoming().updated_at == request.time;
+      allow update: if isValidId(reportCode) && reportCode.size() >= 8 && reportCode.size() <= 16 &&
+        isVerified() && isValidGuardianReport(incoming()) &&
+        existing().student_id == request.auth.uid &&
+        incoming().report_code == existing().report_code &&
+        incoming().student_id == existing().student_id &&
+        incoming().updated_at == request.time;
+      allow delete: if isValidId(reportCode) && (isAdmin() || (isSignedIn() && existing().student_id == request.auth.uid));
+    }
+
+    // 26. WebRTC 1-on-1 Voice/Video Call Signaling & ICE Candidates
+    match /calls/{callId} {
+      allow get: if isValidId(callId) && isSignedIn() && (isAdmin() || request.auth.uid in existing().participants);
+      allow list: if isSignedIn() && (request.auth.uid in existing().participants || isAdmin());
+      allow create: if isValidId(callId) && isVerified() && isValidCallSession(incoming()) &&
+        incoming().caller_id == request.auth.uid &&
+        incoming().status == 'ringing' &&
+        request.auth.uid in incoming().participants &&
+        incoming().callee_id in incoming().participants &&
+        incoming().created_at == request.time &&
+        incoming().updated_at == request.time;
+      allow update: if isSignedIn() && isValidId(callId) && isValidCallSession(incoming()) && (
+        isAdmin() ||
+        (isVerified() &&
+         request.auth.uid in existing().participants &&
+         existing().status in ['ringing', 'accepted'] &&
+         incoming().caller_id == existing().caller_id &&
+         incoming().callee_id == existing().callee_id &&
+         incoming().participants == existing().participants &&
+         incoming().call_type == existing().call_type &&
+         incoming().created_at == existing().created_at &&
+         incoming().updated_at == request.time &&
+         (
+           // Callee accepts call with SDP answer
+           (existing().status == 'ringing' && existing().callee_id == request.auth.uid &&
+            incoming().status == 'accepted' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'answer', 'updated_at'])) ||
+           // Either participant ends, rejects, or marks call missed
+           (incoming().status in ['rejected', 'ended', 'missed'] &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updated_at']))
+         ))
+      );
+      allow delete: if isValidId(callId) && isSignedIn() && (
+        isAdmin() || request.auth.uid in existing().participants
+      );
+
+      match /candidates/{candId} {
+        allow get: if isValidId(callId) && isValidId(candId) && isSignedIn() && (
+          isAdmin() ||
+          request.auth.uid in get(/databases/$(database)/documents/calls/$(callId)).data.participants
+        );
+        allow list: if isValidId(callId) && isSignedIn() && (
+          isAdmin() ||
+          request.auth.uid in get(/databases/$(database)/documents/calls/$(callId)).data.participants
+        );
+        allow create: if isValidId(callId) && isValidId(candId) && isVerified() &&
+          isValidCallCandidate(incoming()) &&
+          incoming().sender_id == request.auth.uid &&
+          incoming().created_at == request.time &&
+          exists(/databases/$(database)/documents/calls/$(callId)) &&
+          request.auth.uid in get(/databases/$(database)/documents/calls/$(callId)).data.participants;
+        allow delete: if isValidId(callId) && isValidId(candId) && isSignedIn() && (
+          isAdmin() ||
+          existing().sender_id == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/calls/$(callId)).data.participants
+        );
+      }
+    }
+
+    // 27. Cloud-Synced Live Classroom Attendance
+    match /live_attendance/{attId} {
+      allow get: if isValidId(attId) && isSignedIn();
+      allow list: if isSignedIn() && existing().session_id != '';
+      allow create, update: if isValidId(attId) && isVerified() && isValidLiveAttendance(incoming()) &&
+        incoming().updated_at == request.time &&
+        exists(/databases/$(database)/documents/live_sessions/$(incoming().session_id)) &&
+        (
+          isAdmin() ||
+          incoming().user_id == request.auth.uid ||
+          get(/databases/$(database)/documents/live_sessions/$(incoming().session_id)).data.host_id == request.auth.uid
+        );
+      allow delete: if isValidId(attId) && isSignedIn() && (
+        isAdmin() ||
+        existing().user_id == request.auth.uid ||
+        get(/databases/$(database)/documents/live_sessions/$(existing().session_id)).data.host_id == request.auth.uid
+      );
+    }
+
+    // 28. QR-Verified Academic Certificates (Exact Code Get Only; No Public List)
+    match /certificates/{certCode} {
+      allow get: if isValidId(certCode) && certCode.size() >= 8 && certCode.size() <= 16;
+      allow list: if isSignedIn() && (existing().student_id == request.auth.uid || isAdmin());
+      allow create: if isValidId(certCode) && certCode.size() >= 8 && certCode.size() <= 16 &&
+        isVerified() && isValidCertificate(incoming()) &&
+        incoming().cert_code == certCode &&
+        incoming().student_id == request.auth.uid &&
+        incoming().updated_at == request.time;
+      allow update: if isValidId(certCode) && certCode.size() >= 8 && certCode.size() <= 16 &&
+        isVerified() && isValidCertificate(incoming()) &&
+        existing().student_id == request.auth.uid &&
+        incoming().cert_code == existing().cert_code &&
+        incoming().student_id == existing().student_id &&
+        incoming().updated_at == request.time;
+      allow delete: if isValidId(certCode) && isSignedIn() && (
+        isAdmin() || existing().student_id == request.auth.uid
+      );
+    }
+
+    // 29. Chat Online & Typing Presence
+    match /chat_presence/{userId} {
+      allow get: if isValidId(userId) && isSignedIn();
+      allow list: if isSignedIn() && existing().is_online in [true, false];
+      allow create, update: if isValidId(userId) && isVerified() && isOwner(userId) &&
+        isValidChatPresence(incoming()) &&
+        incoming().user_id == request.auth.uid &&
+        incoming().updated_at == request.time;
+      allow delete: if isValidId(userId) && isSignedIn() && (isOwner(userId) || isAdmin());
+    }
+
+    // 30. Interactive Polls & Atomic Per-User Votes Subcollection
+    match /polls/{pollId} {
+      allow get: if isValidId(pollId) && isSignedIn();
+      allow list: if isSignedIn() && existing().scope_type in ['community', 'class'];
+      allow create: if isValidId(pollId) && isVerified() && isValidPoll(incoming()) &&
+        incoming().creator_id == request.auth.uid &&
+        incoming().created_at == request.time;
+      allow delete: if isValidId(pollId) && isSignedIn() && (
+        isAdmin() || existing().creator_id == request.auth.uid
+      );
+
+      match /votes/{userId} {
+        allow get: if isValidId(pollId) && isValidId(userId) && isSignedIn();
+        allow list: if isValidId(pollId) && isSignedIn() && existing().user_id is string;
+        allow create, update: if isValidId(pollId) && isValidId(userId) && isVerified() && isOwner(userId) &&
+          isValidPollVote(incoming()) &&
+          incoming().user_id == request.auth.uid &&
+          incoming().updated_at == request.time &&
+          exists(/databases/$(database)/documents/polls/$(pollId)) &&
+          incoming().option_index < get(/databases/$(database)/documents/polls/$(pollId)).data.options.size();
+        allow delete: if isValidId(pollId) && isValidId(userId) && isSignedIn() && (
+          isOwner(userId) ||
+          isAdmin() ||
+          get(/databases/$(database)/documents/polls/$(pollId)).data.creator_id == request.auth.uid
+        );
+      }
+    }
+
+    // 31. Class Library Resources (Books, Summaries, Worksheets, Links per Unit)
+    match /class_resources/{resourceId} {
+      allow get: if isValidId(resourceId) && isSignedIn();
+      allow list: if isSignedIn() && existing().class_id != '';
+      allow create: if isValidId(resourceId) && isVerified() && isValidClassResource(incoming()) &&
+        incoming().uploader_id == request.auth.uid &&
+        incoming().created_at == request.time &&
+        exists(/databases/$(database)/documents/classes/$(incoming().class_id)) &&
+        (
+          isAdmin() ||
+          get(/databases/$(database)/documents/classes/$(incoming().class_id)).data.teacher_id == request.auth.uid ||
+          exists(/databases/$(database)/documents/class_members/$(incoming().class_id + '_' + request.auth.uid))
+        );
+      allow update: if isSignedIn() && isValidId(resourceId) && isValidClassResource(incoming()) && (
+        isAdmin() ||
+        (isVerified() &&
+         (existing().uploader_id == request.auth.uid ||
+          get(/databases/$(database)/documents/classes/$(existing().class_id)).data.teacher_id == request.auth.uid) &&
+         incoming().class_id == existing().class_id &&
+         incoming().uploader_id == existing().uploader_id &&
+         incoming().created_at == existing().created_at &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'unit_name', 'kind', 'description', 'file_url', 'file_name', 'file_size', 'external_url']))
+      );
+      allow delete: if isValidId(resourceId) && isSignedIn() && (
+        isAdmin() ||
+        existing().uploader_id == request.auth.uid ||
+        get(/databases/$(database)/documents/classes/$(existing().class_id)).data.teacher_id == request.auth.uid
       );
     }
   }

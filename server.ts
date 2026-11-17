@@ -301,15 +301,25 @@ async function startServer() {
     next();
   });
 
-  app.get('/api/health', (_req: Request, res: Response) => {
+  const DEFAULT_APK_URL = 'https://github.com/MuhammedNime/nemvia5/releases/latest/download/app-release.apk';
+  const getApkStatus = () => {
     const apkPath = path.resolve(__dirname, 'release', 'NEMVIA-v1.0.0.apk');
+    const localExists = fs.existsSync(apkPath);
+    const remoteUrl = (process.env.APK_DOWNLOAD_URL || DEFAULT_APK_URL).trim();
+    return { apkPath, localExists, remoteUrl, apkUrl: localExists ? '/download/nemvia.apk' : remoteUrl };
+  };
+
+  app.get('/api/health', (_req: Request, res: Response) => {
+    const apk = getApkStatus();
     const keys = getGeminiApiKeys();
     res.json({
       ok: true,
       aiReady: keys.length > 0,
       aiKeyCount: keys.length,
       aiModels: getCandidateModels(),
-      apkAvailable: fs.existsSync(apkPath),
+      apkAvailable: Boolean(apk.localExists || apk.remoteUrl),
+      localApkAvailable: apk.localExists,
+      apkUrl: apk.apkUrl,
     });
   });
 
@@ -341,12 +351,16 @@ async function startServer() {
   });
 
   app.get('/download/nemvia.apk', (_req: Request, res: Response) => {
-    const apkPath = path.resolve(__dirname, 'release', 'NEMVIA-v1.0.0.apk');
-    if (!fs.existsSync(apkPath)) {
-      res.status(404).json({ error: 'APK file not built yet' });
+    const apk = getApkStatus();
+    if (apk.localExists) {
+      res.download(apk.apkPath, 'NEMVIA-v1.0.0.apk');
       return;
     }
-    res.download(apkPath, 'NEMVIA-v1.0.0.apk');
+    if (apk.remoteUrl) {
+      res.redirect(302, apk.remoteUrl);
+      return;
+    }
+    res.status(404).json({ error: 'APK file not built yet' });
   });
 
   // 1) المعلم الذكي التفاعلي (Multi-turn AI Tutor)
@@ -970,6 +984,83 @@ async function startServer() {
       });
     } catch (err) {
       sendAIError(res, err, 'تعذّر توليد توصيات التحليلات');
+    }
+  });
+
+  // 11) ماسح الأوراق والمسائل بالكاميرا بالذكاء الاصطناعي (OCR + حل خطوة بخطوة / تقييم)
+  app.post('/api/ai/scan-paper', async (req: Request, res: Response) => {
+    if (getGeminiApiKeys().length === 0) {
+      res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مفعّلة بعد في Settings > Secrets.' });
+      return;
+    }
+    try {
+      const { imageBase64, mimeType = 'image/jpeg', mode = 'solve', extraPrompt = '' } = req.body as {
+        imageBase64?: string;
+        mimeType?: string;
+        mode?: 'solve' | 'grade' | 'notes';
+        extraPrompt?: string;
+      };
+
+      const extracted = await extractUploadedContent({
+        base64: imageBase64,
+        mimeType,
+        name: 'camera-scan.jpg',
+      });
+      if (!extracted.inlinePart) {
+        res.status(400).json({ error: 'يرجى التقاط أو رفع صورة واضحة للمسألة أو الورقة الدراسية.' });
+        return;
+      }
+
+      const modePrompts: Record<'solve' | 'grade' | 'notes', string> = {
+        solve:
+          'اقرأ النص أو المعادلة الرياضية/العلمية في الصورة بدقة، ثم قدّم الحل الكامل خطوة بخطوة مع النتيجة النهائية بشكل واضح للطالب.',
+        grade:
+          'اقرأ السؤال وإجابة الطالب المكتوبة في الورقة، ثم صحّح الإجابة: حدد الأجزاء الصحيحة، والأخطاء إن وُجدت، وقدّم التصويب والنسبة التقديرية.',
+        notes:
+          'استخرج كل ما كُتب في الصفحة أو السبورة على شكل نص منسّق، ولخّصه في نقاط مراجعة مركّزة وسهلة الحفظ.',
+      };
+      const instruction = modePrompts[mode] || modePrompts.solve;
+      const customNote = extraPrompt.trim() ? `\nملاحظة إضافية من المستخدم: ${extraPrompt.trim().slice(0, 600)}` : '';
+
+      const response = await runWithAI((ai, model) =>
+        ai.models.generateContent({
+          model,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                extracted.inlinePart!,
+                { text: `${instruction}${customNote}` },
+              ],
+            },
+          ],
+          config: {
+            systemInstruction:
+              'أنت مساعد ومصحح ذكي في منصة NEMVIA. حلّل الصورة التعليمية بدقة وأخرج النتيجة بصيغة JSON عربية واضحة ومنظمة.',
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              required: ['extractedText', 'analysis', 'steps', 'finalAnswer'],
+              properties: {
+                extractedText: { type: Type.STRING },
+                analysis: { type: Type.STRING },
+                steps: { type: Type.ARRAY, items: { type: Type.STRING } },
+                finalAnswer: { type: Type.STRING },
+              },
+            },
+          },
+        }),
+      );
+
+      const parsed = JSON.parse((response.text || '{}').trim());
+      res.json({
+        extractedText: String(parsed.extractedText || ''),
+        analysis: String(parsed.analysis || ''),
+        steps: Array.isArray(parsed.steps) ? parsed.steps.map(String) : [],
+        finalAnswer: String(parsed.finalAnswer || ''),
+      });
+    } catch (err) {
+      sendAIError(res, err, 'تعذّر تحليل الصورة بالذكاء الاصطناعي');
     }
   });
 

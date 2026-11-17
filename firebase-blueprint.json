@@ -362,6 +362,157 @@
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["requester_id", "target_id", "status", "created_at"]
+    },
+    "QuestionBankItem": {
+      "title": "QuestionBankItem",
+      "description": "Reusable cloud question bank item owned by a teacher.",
+      "type": "object",
+      "properties": {
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "q_type": { "type": "string", "enum": ["mcq", "true_false", "multi_select", "short_answer", "fill_blank", "essay"] },
+        "question": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["teacher_id", "subject", "q_type", "question", "created_at"]
+    },
+    "GuardianReport": {
+      "title": "GuardianReport",
+      "description": "Read-only academic progress summary shared with a parent/guardian via secret code (no PII).",
+      "type": "object",
+      "properties": {
+        "report_code": { "type": "string", "minLength": 8, "maxLength": 16 },
+        "student_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "student_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "avg_quiz_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "completed_quizzes": { "type": "integer", "minimum": 0 },
+        "submitted_assignments": { "type": "integer", "minimum": 0 },
+        "points": { "type": "integer", "minimum": 0 },
+        "streak_days": { "type": "integer", "minimum": 0 },
+        "classes_count": { "type": "integer", "minimum": 0 },
+        "recent_grades": { "type": "array", "maxItems": 20 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["report_code", "student_id", "student_name", "avg_quiz_score", "completed_quizzes", "submitted_assignments", "points", "streak_days", "classes_count", "recent_grades", "updated_at"]
+    },
+    "CallSession": {
+      "title": "CallSession",
+      "description": "1-on-1 WebRTC voice/video call signaling document.",
+      "type": "object",
+      "properties": {
+        "caller_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "caller_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "callee_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "callee_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "participants": { "type": "array" },
+        "call_type": { "type": "string", "enum": ["audio", "video"] },
+        "status": { "type": "string", "enum": ["ringing", "accepted", "rejected", "ended", "missed"] },
+        "offer": { "type": "object" },
+        "answer": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["caller_id", "caller_name", "callee_id", "callee_name", "participants", "call_type", "status", "offer", "created_at", "updated_at"]
+    },
+    "CallCandidate": {
+      "title": "CallCandidate",
+      "description": "WebRTC ICE candidate exchanged inside a call session.",
+      "type": "object",
+      "properties": {
+        "sender_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "candidate": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sender_id", "candidate", "created_at"]
+    },
+    "LiveAttendance": {
+      "title": "LiveAttendance",
+      "description": "Cloud-synced attendance record for a live classroom session.",
+      "type": "object",
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "user_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "status": { "type": "string", "enum": ["present", "late", "absent"] },
+        "checked_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["session_id", "user_id", "user_name", "status", "updated_at"]
+    },
+    "VerifiedCertificate": {
+      "title": "VerifiedCertificate",
+      "description": "Publicly verifiable QR academic achievement certificate (no PII).",
+      "type": "object",
+      "properties": {
+        "cert_code": { "type": "string", "minLength": 8, "maxLength": 16 },
+        "student_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "student_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "issuer_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "points": { "type": "integer", "minimum": 0 },
+        "streak_days": { "type": "integer", "minimum": 0 },
+        "issued_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["cert_code", "student_id", "student_name", "title", "issuer_name", "points", "streak_days", "issued_at", "updated_at"]
+    },
+    "ChatPresence": {
+      "title": "ChatPresence",
+      "description": "Real-time online and typing indicator state per user.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "is_online": { "type": "boolean" },
+        "typing_to": { "type": "string", "maxLength": 128 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "is_online", "typing_to", "updated_at"]
+    },
+    "Poll": {
+      "title": "Poll",
+      "description": "Interactive poll in community feed or class channel.",
+      "type": "object",
+      "properties": {
+        "scope_type": { "type": "string", "enum": ["community", "class"] },
+        "scope_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "creator_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "creator_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "question": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "options": { "type": "array" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["scope_type", "scope_id", "creator_id", "creator_name", "question", "options", "created_at"]
+    },
+    "PollVote": {
+      "title": "PollVote",
+      "description": "Individual user vote on a poll option.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "option_index": { "type": "integer", "minimum": 0 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "option_index", "updated_at"]
+    },
+    "ClassResource": {
+      "title": "ClassResource",
+      "description": "Organized textbook, summary, worksheet, or educational link inside a class, grouped by unit.",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uploader_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "uploader_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "unit_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "kind": { "type": "string", "enum": ["book", "summary", "worksheet", "link", "video"] },
+        "description": { "type": "string", "maxLength": 2000 },
+        "file_url": { "type": "string", "maxLength": 2000 },
+        "file_name": { "type": "string", "maxLength": 255 },
+        "file_size": { "type": "string", "maxLength": 40 },
+        "external_url": { "type": "string", "maxLength": 2000 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "uploader_id", "uploader_name", "title", "unit_name", "kind", "created_at"]
     }
   },
   "firestore": {
@@ -464,6 +615,46 @@
     "/follow_requests/{reqId}": {
       "schema": { "$ref": "#/entities/FollowRequest" },
       "description": "Follow requests for private profiles."
+    },
+    "/question_bank/{itemId}": {
+      "schema": { "$ref": "#/entities/QuestionBankItem" },
+      "description": "Teacher cloud question bank items."
+    },
+    "/guardian_reports/{reportCode}": {
+      "schema": { "$ref": "#/entities/GuardianReport" },
+      "description": "Secret-code guardian read-only academic progress summaries."
+    },
+    "/calls/{callId}": {
+      "schema": { "$ref": "#/entities/CallSession" },
+      "description": "1-on-1 WebRTC voice and video call signaling."
+    },
+    "/calls/{callId}/candidates/{candId}": {
+      "schema": { "$ref": "#/entities/CallCandidate" },
+      "description": "ICE candidates subcollection scoped to call participants."
+    },
+    "/live_attendance/{attId}": {
+      "schema": { "$ref": "#/entities/LiveAttendance" },
+      "description": "Cloud-synced live session attendance records."
+    },
+    "/certificates/{certCode}": {
+      "schema": { "$ref": "#/entities/VerifiedCertificate" },
+      "description": "QR-verified academic certificates."
+    },
+    "/chat_presence/{userId}": {
+      "schema": { "$ref": "#/entities/ChatPresence" },
+      "description": "Online and typing presence indicators."
+    },
+    "/polls/{pollId}": {
+      "schema": { "$ref": "#/entities/Poll" },
+      "description": "Interactive polls in community and class chats."
+    },
+    "/polls/{pollId}/votes/{userId}": {
+      "schema": { "$ref": "#/entities/PollVote" },
+      "description": "Per-user atomic votes on a poll."
+    },
+    "/class_resources/{resourceId}": {
+      "schema": { "$ref": "#/entities/ClassResource" },
+      "description": "Organized class library of books, summaries, worksheets, videos, and links grouped by unit."
     }
   }
 }

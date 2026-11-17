@@ -30,6 +30,9 @@ import {
   Printer,
   Library,
   Flame,
+  WifiOff,
+  BookmarkCheck,
+  Bookmark,
 } from 'lucide-react';
 import { AppRole, Assignment, Course, Lesson, MinistryItem, Quiz, QuizQuestion, QuizQuestionType, QuizAnswerValue, QuizAttempt, QuestionFeedbackItem, SchoolItem, Submission, ClassItem } from '../../types';
 import { downloadQuizAsWordDoc } from '../../lib/wordExport';
@@ -57,6 +60,12 @@ import {
   TeacherAnalyticsPanel,
 } from './CoursePowerModals';
 import { loadQuestionBank } from '../../lib/questionBank';
+import {
+  loadOfflineLessons,
+  saveOfflineLesson,
+  removeOfflineLesson,
+  OfflineSavedLesson,
+} from '../../lib/offlineLessons';
 
 interface CoursesViewProps {
   currentRole: AppRole;
@@ -571,8 +580,36 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
   const [lessonSummaries, setLessonSummaries] = useState<Record<string, LessonSummaryResult>>({});
   const [lessonAiLoadingId, setLessonAiLoadingId] = useState<string | null>(null);
   const [lessonAiError, setLessonAiError] = useState<Record<string, string>>({});
+  const [offlineLessons, setOfflineLessons] = useState<OfflineSavedLesson[]>(() => loadOfflineLessons(currentUserId));
+  const [showOfflineOnly, setShowOfflineOnly] = useState(false);
+  const [isOffline, setIsOffline] = useState<boolean>(() => (typeof navigator !== 'undefined' ? !navigator.onLine : false));
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    setOfflineLessons(loadOfflineLessons(currentUserId));
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onOnline = () => setIsOffline(false);
+    const onOffline = () => setIsOffline(true);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  const toggleOfflineLesson = (ls: Lesson) => {
+    const exists = offlineLessons.some(item => item.id === ls.id);
+    if (exists) {
+      setOfflineLessons(removeOfflineLesson(currentUserId, ls.id));
+    } else {
+      setOfflineLessons(saveOfflineLesson(currentUserId, ls));
+    }
+  };
   const audioChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
 
@@ -1375,7 +1412,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
         />
       )}
 
-      {((activeTab === 'quizzes' && quizzes.length === 0) || (activeTab === 'lessons' && lessons.length === 0) || (activeTab === 'courses' && courses.length === 0)) && (
+      {((activeTab === 'quizzes' && quizzes.length === 0) || (activeTab === 'lessons' && lessons.length === 0 && offlineLessons.length === 0) || (activeTab === 'courses' && courses.length === 0)) && (
         <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">
           لا يوجد محتوى هنا بعد. انضم إلى صف باستخدام رمز الانضمام{canBuild ? '، أو أضف درساً أو اختباراً من الأزرار أعلاه' : ' ليظهر لك محتواه'}.
         </div>
@@ -1878,16 +1915,90 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
       )}
 
       {/* LESSONS TAB */}
-      {activeTab === 'lessons' && (
+      {activeTab === 'lessons' && (() => {
+        const offlineAsLessons: Lesson[] = offlineLessons.map((item, idx) => ({
+          id: item.id,
+          class_id: item.class_id,
+          teacher_id: '',
+          teacher_name: item.teacher_name,
+          title: item.title,
+          content: item.content,
+          video_url: item.video_url,
+          duration: item.duration,
+          attachment_url: item.attachment_url,
+          attachment_name: item.attachment_name,
+          position: idx,
+          published_at: item.saved_at,
+        }));
+        const displayedLessons = showOfflineOnly || (isOffline && lessons.length === 0 && offlineAsLessons.length > 0)
+          ? offlineAsLessons
+          : lessons;
+
+        return (
         <div className="space-y-4">
+          <div className="bg-white p-3 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setShowOfflineOnly(false)}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  !showOfflineOnly ? 'bg-white text-[#1677c7] shadow-xs' : 'text-slate-600'
+                }`}
+              >
+                جميع الدروس ({lessons.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOfflineOnly(true)}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  showOfflineOnly ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600'
+                }`}
+              >
+                <BookmarkCheck className="w-3.5 h-3.5" />
+                <span>المحفوظات بدون إنترنت ({offlineLessons.length})</span>
+              </button>
+            </div>
+            {isOffline && (
+              <span className="inline-flex items-center gap-1.5 text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-xl font-bold">
+                <WifiOff className="w-3.5 h-3.5" />
+                <span>أنت غير متصل — يتم عرض الدروس المحفوظة محلياً</span>
+              </span>
+            )}
+          </div>
+
+          {displayedLessons.length === 0 && (
+            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500">
+              {showOfflineOnly
+                ? 'لم تحفظ أي درس للمذاكرة بدون إنترنت بعد. اضغط «حفظ بدون إنترنت» على أي درس لحفظه على جهازك.'
+                : 'لا توجد دروس متاحة حالياً.'}
+            </div>
+          )}
+
           <div className="grid md:grid-cols-2 gap-4">
-            {lessons.map((ls) => (
+            {displayedLessons.map((ls) => {
+              const isSavedOffline = offlineLessons.some(o => o.id === ls.id);
+              return (
               <div key={ls.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md">
                     درس تفاعلي
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">{ls.duration || ''}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleOfflineLesson(ls)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors border ${
+                        isSavedOffline
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                      title={isSavedOffline ? 'إزالة من المحفوظات المحلية' : 'حفظ الدرس للقراءة بدون إنترنت'}
+                    >
+                      {isSavedOffline ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+                      <span>{isSavedOffline ? 'محفوظ ✓' : 'حفظ بدون إنترنت'}</span>
+                    </button>
+                    {ls.duration && <span className="text-xs text-slate-400 font-mono">{ls.duration}</span>}
+                  </div>
                 </div>
 
                 <h3 className="font-extrabold text-slate-900 text-base">{ls.title}</h3>
@@ -1916,7 +2027,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                       </span>
                       <button
                         type="button"
-                        disabled={lessonAiLoadingId === ls.id}
+                        disabled={lessonAiLoadingId === ls.id || isOffline}
                         onClick={() => handleSummarizeLesson(ls)}
                         className="px-3 py-1.5 bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-50 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                       >
@@ -1963,7 +2074,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                   <span className="text-slate-500 font-medium">الأستاذ: {ls.teacher_name}</span>
                   <div className="flex items-center gap-2">
-                    {(ls.teacher_id === currentUserId || currentRole === 'admin') && (
+                    {(ls.teacher_id === currentUserId || currentRole === 'admin') && !showOfflineOnly && (
                       <button onClick={() => onDeleteLesson(ls.id)} className="text-rose-600 font-bold cursor-pointer">حذف</button>
                     )}
                     <button onClick={() => setSelectedLesson(selectedLesson?.id === ls.id ? null : ls)} className="text-[#1677c7] font-bold cursor-pointer">
@@ -1978,10 +2089,12 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* COURSES TAB */}
       {activeTab === 'courses' && (

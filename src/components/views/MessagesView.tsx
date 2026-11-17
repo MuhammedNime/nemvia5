@@ -18,10 +18,22 @@ import {
   Flag,
   ChevronRight,
   MessageSquare,
+  Phone,
+  Video,
+  Mic,
+  Square,
+  Trash2,
+  PenTool,
+  Volume2,
+  BarChart2,
+  Headphones,
 } from 'lucide-react';
-import { AppRole, ChatAttachment, DirectMessage, ClassItem, ContactInfo } from '../../types';
-import { UploadedFile } from '../../lib/api';
+import { AppRole, CallType, ChatAttachment, ChatPresence, DirectMessage, ClassItem, ContactInfo, PollItem } from '../../types';
+import * as api from '../../lib/api';
+import type { UploadedFile } from '../../lib/api';
 import type { ReportTarget } from '../ReportModal';
+import { WhiteboardModal } from '../WhiteboardModal';
+import { PollCard, PollComposerModal } from '../PollCard';
 
 interface MessagesViewProps {
   currentUserId: string;
@@ -38,6 +50,7 @@ interface MessagesViewProps {
   onMarkRead: (ids: string[]) => void;
   initialPeerId?: string | null;
   onClearInitialPeer?: () => void;
+  onStartCall?: (calleeId: string, calleeName: string, callType: CallType) => void;
 }
 
 interface ConversationThread {
@@ -90,6 +103,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   onMarkRead,
   initialPeerId,
   onClearInitialPeer,
+  onStartCall,
 }) => {
   const [activeTargetId, setActiveTargetId] = useState<string>(initialPeerId || groups[0]?.id || '');
   const [activeTargetType, setActiveTargetType] = useState<'group' | 'dm'>(
@@ -123,12 +137,88 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [recordErr, setRecordErr] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<number | undefined>(undefined);
+  const recordCancelledRef = useRef(false);
+
+  // Whiteboard modal state
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+
+  // Live Presence & Typing state
+  const [presenceMap, setPresenceMap] = useState<Record<string, ChatPresence>>({});
+  const typingTimerRef = useRef<number | undefined>(undefined);
+  const lastTypingPingRef = useRef<number>(0);
+
+  // Group Polls & Audio Study Room state
+  const [groupPolls, setGroupPolls] = useState<PollItem[]>([]);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [showGroupPollsStrip, setShowGroupPollsStrip] = useState(true);
+  const [studyRoomGroup, setStudyRoomGroup] = useState<{ id: string; title: string } | null>(null);
+
   // New Group Modal
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
 
   const roleLabel = (r: AppRole) => (r === 'teacher' ? 'معلم' : r === 'admin' ? 'الإدارة' : 'طالب');
+
+  useEffect(() => {
+    return api.subscribeChatPresence(setPresenceMap);
+  }, []);
+
+  useEffect(() => {
+    if (activeTargetType !== 'group' || !activeTargetId) {
+      setGroupPolls([]);
+      return;
+    }
+    return api.subscribePolls('class', activeTargetId, setGroupPolls);
+  }, [activeTargetType, activeTargetId]);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(typingTimerRef.current);
+      if (currentUserId) {
+        void api.updateChatPresence(currentUserId, { is_online: true, typing_to: '' });
+      }
+    };
+  }, [currentUserId]);
+
+  const isUserOnline = (uid: string) => {
+    const p = presenceMap[uid];
+    if (!p?.is_online || !p.updated_at) return false;
+    return Date.now() - new Date(p.updated_at).getTime() < 5 * 60 * 1000;
+  };
+
+  const isTypingToMe = (uid: string) => {
+    const p = presenceMap[uid];
+    if (!p || p.typing_to !== currentUserId || !p.updated_at) return false;
+    return Date.now() - new Date(p.updated_at).getTime() < 12 * 1000;
+  };
+
+  const notifyTyping = (nextValue: string) => {
+    setInputText(nextValue);
+    if (!currentUserId || activeTargetType !== 'dm' || !activeTargetId) return;
+    window.clearTimeout(typingTimerRef.current);
+    if (!nextValue.trim()) {
+      lastTypingPingRef.current = 0;
+      void api.updateChatPresence(currentUserId, { is_online: true, typing_to: '' });
+      return;
+    }
+    const now = Date.now();
+    if (now - lastTypingPingRef.current > 1600) {
+      lastTypingPingRef.current = now;
+      void api.updateChatPresence(currentUserId, { is_online: true, typing_to: activeTargetId });
+    }
+    typingTimerRef.current = window.setTimeout(() => {
+      lastTypingPingRef.current = 0;
+      void api.updateChatPresence(currentUserId, { is_online: true, typing_to: '' });
+    }, 2600);
+  };
 
   useEffect(() => {
     if (!contactQuery.trim()) {
@@ -319,6 +409,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    await attachUploadedFile(file);
+  };
+
+  const attachUploadedFile = async (file: File) => {
     setUploading(true);
     try {
       const up = await onUpload(file, 'chat');
@@ -335,6 +429,96 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       /* toast handled upstream */
     }
     setUploading(false);
+  };
+
+  const startVoiceRecording = async () => {
+    setRecordErr(null);
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setRecordErr('تسجيل الصوت غير مدعوم على هذا المتصفح.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
+            : '';
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      recordChunksRef.current = [];
+      recordCancelledRef.current = false;
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = ev => {
+        if (ev.data && ev.data.size > 0) recordChunksRef.current.push(ev.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        if (recordTimerRef.current) window.clearInterval(recordTimerRef.current);
+        setIsRecording(false);
+        const dur = recordSeconds;
+        setRecordSeconds(0);
+        if (recordCancelledRef.current || recordChunksRef.current.length === 0) return;
+
+        const actualType = recorder.mimeType || 'audio/webm';
+        const ext = actualType.includes('mp4') ? 'm4a' : actualType.includes('ogg') ? 'ogg' : 'webm';
+        const blob = new Blob(recordChunksRef.current, { type: actualType });
+        const voiceFile = new File([blob], `voice-${Date.now()}.${ext}`, { type: actualType });
+        setUploading(true);
+        try {
+          const up = await onUpload(voiceFile, 'chat');
+          if (activeTargetId) {
+            onSendMessage({
+              id: `msg-${Date.now()}`,
+              sender_id: currentUserId,
+              sender_name: currentUserName,
+              sender_role: currentRole,
+              recipient_id: activeTargetId,
+              recipient_name: activeTitle,
+              channel_id: activeTargetType === 'group' ? activeTargetId : undefined,
+              body: `🎤 رسالة صوتية${dur > 0 ? ` (${dur} ث)` : ''}`,
+              attachment: {
+                id: `att-${Date.now()}`,
+                name: up.name,
+                size: up.size,
+                type: 'audio',
+                url: up.url,
+                uploaded_by: currentUserName,
+                uploaded_at: new Date().toISOString(),
+              },
+              reactions: {},
+              created_at: new Date().toISOString(),
+            });
+          }
+        } catch {
+          setRecordErr('تعذّر رفع الرسالة الصوتية.');
+        } finally {
+          setUploading(false);
+        }
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setRecordSeconds(0);
+      recordTimerRef.current = window.setInterval(() => setRecordSeconds(s => s + 1), 1000);
+    } catch {
+      setRecordErr('يرجى السماح بصلاحية المايكروفون لتسجيل الرسائل الصوتية.');
+    }
+  };
+
+  const stopVoiceRecording = (cancel = false) => {
+    recordCancelledRef.current = cancel;
+    if (recordTimerRef.current) window.clearInterval(recordTimerRef.current);
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state !== 'inactive') {
+      rec.stop();
+    } else {
+      setIsRecording(false);
+      setRecordSeconds(0);
+    }
   };
 
   const handleSend = (e: React.FormEvent) => {
@@ -359,6 +543,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     onSendMessage(newMsg);
     setInputText('');
     setPendingFile(null);
+    window.clearTimeout(typingTimerRef.current);
+    lastTypingPingRef.current = 0;
+    if (activeTargetType === 'dm') {
+      void api.updateChatPresence(currentUserId, { is_online: true, typing_to: '' });
+    }
   };
 
   const handleCreateGroup = (e: React.FormEvent) => {
@@ -461,13 +650,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             ) : (
               threads.map(thread => {
                 const isSelected = activeTargetId === thread.id && activeTargetType === thread.type;
-                const previewText = thread.lastMessage
-                  ? thread.lastMessage.sender_id === currentUserId
-                    ? `أنت: ${thread.lastMessage.body}`
-                    : thread.type === 'group'
-                      ? `${thread.lastMessage.sender_name}: ${thread.lastMessage.body}`
-                      : thread.lastMessage.body
-                  : thread.subtitle;
+                const online = thread.type === 'dm' && isUserOnline(thread.id);
+                const typing = thread.type === 'dm' && isTypingToMe(thread.id);
+                const previewText = typing
+                  ? 'يكتب الآن...'
+                  : thread.lastMessage
+                    ? thread.lastMessage.sender_id === currentUserId
+                      ? `أنت: ${thread.lastMessage.body}`
+                      : thread.type === 'group'
+                        ? `${thread.lastMessage.sender_name}: ${thread.lastMessage.body}`
+                        : thread.lastMessage.body
+                    : thread.subtitle;
 
                 return (
                   <button
@@ -480,15 +673,23 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                         : 'hover:bg-slate-50'
                     }`}
                   >
-                    {/* Avatar */}
-                    <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 ${
-                        thread.type === 'group'
-                          ? 'bg-sky-50 border border-sky-200 text-lg'
-                          : 'bg-[#0f233a] text-white'
-                      }`}
-                    >
-                      {thread.avatarText}
+                    {/* Avatar + Online Dot */}
+                    <div className="relative shrink-0">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm ${
+                          thread.type === 'group'
+                            ? 'bg-sky-50 border border-sky-200 text-lg'
+                            : 'bg-[#0f233a] text-white'
+                        }`}
+                      >
+                        {thread.avatarText}
+                      </div>
+                      {online && (
+                        <span
+                          className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white"
+                          title="متصل الآن"
+                        />
+                      )}
                     </div>
 
                     {/* Title + Last Preview */}
@@ -503,7 +704,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                       </div>
 
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`text-xs truncate ${thread.unreadCount > 0 ? 'font-bold text-slate-700' : 'text-slate-500'}`}>
+                        <span className={`text-xs truncate ${typing ? 'font-black text-emerald-600' : thread.unreadCount > 0 ? 'font-bold text-slate-700' : 'text-slate-500'}`}>
                           {previewText}
                         </span>
                         {thread.unreadCount > 0 ? (
@@ -512,7 +713,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-400 shrink-0">
-                            {thread.type === 'group' ? 'مجموعة' : 'فردي'}
+                            {thread.type === 'group' ? 'مجموعة' : online ? 'متصل' : 'فردي'}
                           </span>
                         )}
                       </div>
@@ -559,37 +760,148 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                     <ChevronRight className="w-5 h-5" />
                   </button>
 
-                  <div
-                    className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 ${
-                      activeThread.type === 'group'
-                        ? 'bg-sky-50 border border-sky-200 text-lg'
-                        : 'bg-[#0f233a] text-white'
-                    }`}
-                  >
-                    {activeThread.avatarText}
+                  <div className="relative shrink-0">
+                    <div
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm ${
+                        activeThread.type === 'group'
+                          ? 'bg-sky-50 border border-sky-200 text-lg'
+                          : 'bg-[#0f233a] text-white'
+                      }`}
+                    >
+                      {activeThread.avatarText}
+                    </div>
+                    {activeThread.type === 'dm' && isUserOnline(activeThread.id) && (
+                      <span className="absolute -bottom-0.5 -left-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+                    )}
                   </div>
 
                   <div className="min-w-0">
                     <h3 className="font-black text-slate-900 text-sm truncate">{activeTitle}</h3>
-                    <p className="text-[11px] text-slate-500 truncate">{activeSubtitle}</p>
+                    <p
+                      className={`text-[11px] truncate ${
+                        activeThread.type === 'dm' && isTypingToMe(activeThread.id)
+                          ? 'text-emerald-600 font-black'
+                          : activeThread.type === 'dm' && isUserOnline(activeThread.id)
+                            ? 'text-emerald-700 font-bold'
+                            : 'text-slate-500'
+                      }`}
+                    >
+                      {activeThread.type === 'dm'
+                        ? isTypingToMe(activeThread.id)
+                          ? 'يكتب الآن...'
+                          : isUserOnline(activeThread.id)
+                            ? `${activeSubtitle} · متصل الآن`
+                            : activeSubtitle
+                        : activeSubtitle}
+                    </p>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowFilesVault(v => !v)}
-                  className={`min-h-[40px] px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                    showFilesVault
-                      ? 'bg-[#1677c7] text-white'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
-                  title="عرض الملفات المتبادلة في هذه المحادثة"
-                >
-                  <FolderLock className="w-4 h-4" />
-                  <span className="hidden sm:inline">خزينة الملفات</span>
-                  <span className="tabular-nums">({conversationFiles.length})</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {activeThread.type === 'dm' && onStartCall && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onStartCall(activeThread.id, activeThread.title, 'audio')}
+                        className="min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                        title="مكالمة صوتية مباشرة"
+                      >
+                        <Phone className="w-4 h-4" />
+                        <span className="hidden lg:inline">اتصال</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onStartCall(activeThread.id, activeThread.title, 'video')}
+                        className="min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-[#1677c7] font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                        title="مكالمة فيديو مباشرة"
+                      >
+                        <Video className="w-4 h-4" />
+                        <span className="hidden lg:inline">فيديو</span>
+                      </button>
+                    </>
+                  )}
+
+                  {activeThread.type === 'group' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setStudyRoomGroup({ id: activeThread.id, title: activeThread.title })}
+                        className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                        title="فتح غرفة مذاكرة صوتية جماعية"
+                      >
+                        <Headphones className="w-4 h-4" />
+                        <span className="hidden lg:inline">غرفة دراسة</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowPollModal(true)}
+                        className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                        title="إنشاء استطلاع رأي للمجموعة"
+                      >
+                        <BarChart2 className="w-4 h-4" />
+                        <span className="hidden lg:inline">استطلاع</span>
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setWhiteboardOpen(true)}
+                    className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                    title="رسم على السبورة وإرسالها"
+                  >
+                    <PenTool className="w-4 h-4 text-[#1677c7]" />
+                    <span className="hidden xl:inline">سبورة</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowFilesVault(v => !v)}
+                    className={`min-h-[40px] px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                      showFilesVault
+                        ? 'bg-[#1677c7] text-white'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                    title="عرض الملفات المتبادلة في هذه المحادثة"
+                  >
+                    <FolderLock className="w-4 h-4" />
+                    <span className="hidden sm:inline">خزينة الملفات</span>
+                    <span className="tabular-nums">({conversationFiles.length})</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Pinned Group Polls Strip */}
+              {activeThread.type === 'group' && groupPolls.length > 0 && (
+                <div className="px-3 sm:px-5 py-2.5 bg-sky-50/60 border-b border-sky-100 shrink-0 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-black text-[#0f233a]">
+                    <span className="flex items-center gap-1.5">
+                      <BarChart2 className="w-3.5 h-3.5 text-[#1677c7]" />
+                      <span>تصويتات المجموعة ({groupPolls.length})</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowGroupPollsStrip(v => !v)}
+                      className="text-[#1677c7] hover:underline cursor-pointer"
+                    >
+                      {showGroupPollsStrip ? 'إخفاء' : 'عرض'}
+                    </button>
+                  </div>
+                  {showGroupPollsStrip && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto">
+                      {groupPolls.map(poll => (
+                        <PollCard
+                          key={poll.id}
+                          poll={poll}
+                          currentUserId={currentUserId}
+                          currentRole={currentRole}
+                          compact
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Messages Stream */}
               <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 min-h-0">
@@ -670,39 +982,74 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                             <p className="whitespace-pre-wrap break-words">{msg.body}</p>
 
                             {msg.attachment && (
-                              <div
-                                className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 ${
-                                  isMine
-                                    ? 'bg-white/10 border-white/20 text-white'
-                                    : 'bg-slate-50 border-slate-200 text-slate-900'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center shrink-0">
-                                    {msg.attachment.type === 'image' && <ImageIcon className="w-4 h-4 text-emerald-500" />}
-                                    {msg.attachment.type === 'pdf' && <FileText className="w-4 h-4 text-rose-500" />}
-                                    {msg.attachment.type === 'code' && <Code2 className="w-4 h-4 text-amber-500" />}
-                                    {msg.attachment.type === 'doc' && <FileText className="w-4 h-4 text-sky-500" />}
+                              msg.attachment.type === 'audio' ? (
+                                <div
+                                  className={`p-2 rounded-xl border space-y-1.5 ${
+                                    isMine
+                                      ? 'bg-white/15 border-white/25 text-white'
+                                      : 'bg-slate-50 border-slate-200 text-slate-900'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2 text-[11px] font-bold">
+                                    <span className="inline-flex items-center gap-1">
+                                      <Volume2 className="w-3.5 h-3.5" />
+                                      <span>تسجيل صوتي</span>
+                                    </span>
+                                    <a
+                                      href={msg.attachment.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download={msg.attachment.name}
+                                      className="opacity-80 hover:opacity-100"
+                                      title="تحميل الصوت"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                    </a>
                                   </div>
-                                  <div className="min-w-0">
-                                    <span className="font-bold text-xs truncate block">{msg.attachment.name}</span>
-                                    <span className="text-[10px] opacity-75 block">{msg.attachment.size}</span>
+                                  <audio controls preload="metadata" src={msg.attachment.url} className="w-56 sm:w-64 max-w-full h-9" />
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {msg.attachment.type === 'image' && (
+                                    <a href={msg.attachment.url} target="_blank" rel="noreferrer" className="block rounded-xl overflow-hidden border border-black/10 max-w-xs">
+                                      <img src={msg.attachment.url} alt={msg.attachment.name} className="w-full max-h-56 object-cover" loading="lazy" />
+                                    </a>
+                                  )}
+                                  <div
+                                    className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 ${
+                                      isMine
+                                        ? 'bg-white/10 border-white/20 text-white'
+                                        : 'bg-slate-50 border-slate-200 text-slate-900'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center shrink-0">
+                                        {msg.attachment.type === 'image' && <ImageIcon className="w-4 h-4 text-emerald-500" />}
+                                        {msg.attachment.type === 'pdf' && <FileText className="w-4 h-4 text-rose-500" />}
+                                        {msg.attachment.type === 'code' && <Code2 className="w-4 h-4 text-amber-500" />}
+                                        {msg.attachment.type === 'doc' && <FileText className="w-4 h-4 text-sky-500" />}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <span className="font-bold text-xs truncate block">{msg.attachment.name}</span>
+                                        <span className="text-[10px] opacity-75 block">{msg.attachment.size}</span>
+                                      </div>
+                                    </div>
+
+                                    <a
+                                      href={msg.attachment.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download={msg.attachment.name}
+                                      className={`p-2 rounded-lg transition-colors shrink-0 ${
+                                        isMine ? 'hover:bg-white/20 text-white' : 'hover:bg-slate-200 text-[#1677c7]'
+                                      }`}
+                                      title="تحميل / فتح الملف"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </a>
                                   </div>
                                 </div>
-
-                                <a
-                                  href={msg.attachment.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  download={msg.attachment.name}
-                                  className={`p-2 rounded-lg transition-colors shrink-0 ${
-                                    isMine ? 'hover:bg-white/20 text-white' : 'hover:bg-slate-200 text-[#1677c7]'
-                                  }`}
-                                  title="تحميل / فتح الملف"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </a>
-                              </div>
+                              )
                             )}
                           </div>
                         </div>
@@ -731,43 +1078,90 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 </div>
               )}
 
-              {/* Message Composer */}
-              <form onSubmit={handleSend} className="p-2.5 sm:p-3.5 border-t border-slate-200 bg-white flex items-center gap-2 shrink-0">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx,.txt,.ts,.js,.py"
-                  className="hidden"
-                />
+              {recordErr && (
+                <div className="px-4 py-2 bg-rose-50 border-t border-rose-200 text-rose-700 text-xs font-bold flex items-center justify-between">
+                  <span>{recordErr}</span>
+                  <button type="button" onClick={() => setRecordErr(null)} className="text-rose-500 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              )}
 
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="min-h-[44px] min-w-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                  title="إرفاق ملف أو صورة"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
+              {/* Message Composer or Voice Recording Bar */}
+              {isRecording ? (
+                <div className="p-2.5 sm:p-3.5 border-t border-rose-200 bg-rose-50 flex items-center justify-between gap-3 shrink-0">
+                  <div className="flex items-center gap-2.5 text-xs font-black text-rose-700">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
+                    <span>جاري التسجيل الصوتي...</span>
+                    <span className="font-mono tabular-nums">
+                      {String(Math.floor(recordSeconds / 60)).padStart(2, '0')}:{String(recordSeconds % 60).padStart(2, '0')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => stopVoiceRecording(true)}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-rose-600 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>إلغاء</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => stopVoiceRecording(false)}
+                      className="min-h-[40px] px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                      <span>إرسال الصوت</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSend} className="p-2.5 sm:p-3.5 border-t border-slate-200 bg-white flex items-center gap-2 shrink-0">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept="image/*,audio/*,.pdf,.doc,.docx,.txt,.ts,.js,.py"
+                    className="hidden"
+                  />
 
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={e => setInputText(e.target.value)}
-                  placeholder={`اكتب رسالتك إلى ${activeTitle}...`}
-                  className="flex-1 min-h-[44px] px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:border-[#1677c7]"
-                />
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="min-h-[44px] min-w-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                    title="إرفاق ملف أو صورة"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
 
-                <button
-                  type="submit"
-                  disabled={uploading || (!inputText.trim() && !pendingFile)}
-                  className="min-h-[44px] px-4 bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                >
-                  <Send className="w-4 h-4" />
-                  <span className="hidden sm:inline">إرسال</span>
-                </button>
-              </form>
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => void startVoiceRecording()}
+                    className="min-h-[44px] min-w-[44px] rounded-xl bg-rose-50 hover:bg-rose-100 disabled:opacity-60 text-rose-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                    title="تسجيل رسالة صوتية"
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+
+                  <input
+                    type="text"
+                    value={inputText}
+                    onChange={e => notifyTyping(e.target.value)}
+                    placeholder={`اكتب رسالتك إلى ${activeTitle}...`}
+                    className="flex-1 min-h-[44px] px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:border-[#1677c7]"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={uploading || (!inputText.trim() && !pendingFile)}
+                    className="min-h-[44px] px-4 bg-[#1677c7] hover:bg-[#125fa0] disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span className="hidden sm:inline">إرسال</span>
+                  </button>
+                </form>
+              )}
             </>
           )}
         </section>
@@ -834,6 +1228,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                         <div className="w-8 h-8 rounded-xl bg-sky-50 text-[#1677c7] flex items-center justify-center shrink-0">
                           {file.type === 'pdf' && <FileText className="w-4 h-4 text-rose-500" />}
                           {file.type === 'image' && <ImageIcon className="w-4 h-4 text-emerald-500" />}
+                          {file.type === 'audio' && <Volume2 className="w-4 h-4 text-violet-600" />}
                           {file.type === 'code' && <Code2 className="w-4 h-4 text-amber-500" />}
                           {file.type === 'doc' && <FileText className="w-4 h-4 text-sky-500" />}
                         </div>
@@ -921,6 +1316,80 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 <span>إنشاء وتفعيل المجموعة فوراً</span>
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      <WhiteboardModal
+        open={whiteboardOpen}
+        onClose={() => setWhiteboardOpen(false)}
+        title={`سبورة ${activeTitle}`}
+        onSendImageToChat={async file => {
+          await attachUploadedFile(file);
+        }}
+      />
+
+      {activeThread?.type === 'group' && (
+        <PollComposerModal
+          open={showPollModal}
+          scopeType="class"
+          scopeId={activeThread.id}
+          creatorId={currentUserId}
+          creatorName={currentUserName}
+          onClose={() => setShowPollModal(false)}
+        />
+      )}
+
+      {/* GROUP AUDIO STUDY ROOM MODAL */}
+      {studyRoomGroup && (
+        <div
+          className="fixed inset-0 z-[72] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6"
+          onClick={() => setStudyRoomGroup(null)}
+        >
+          <div
+            className="bg-slate-900 rounded-3xl max-w-4xl w-full h-[80dvh] overflow-hidden border border-slate-700 shadow-2xl flex flex-col animate-in zoom-in-95"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 bg-[#0f233a] text-white flex items-center justify-between gap-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
+                  <Headphones className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-black text-xs sm:text-sm truncate">غرفة المذاكرة الصوتية: {studyRoomGroup.title}</h3>
+                  <p className="text-[10px] text-slate-300 truncate">صوت جماعي فوري مع زملاء الصف أو المجموعة</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudyRoomGroup(null);
+                    setWhiteboardOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <PenTool className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">فتح السبورة</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStudyRoomGroup(null)}
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer inline-flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>مغادرة</span>
+                </button>
+              </div>
+            </div>
+
+            <iframe
+              title={`غرفة مذاكرة ${studyRoomGroup.title}`}
+              src={`https://meet.jit.si/nemvia-study-${encodeURIComponent(studyRoomGroup.id.replace(/[^a-zA-Z0-9_-]/g, ''))}#config.startWithVideoMuted=true&config.prejoinPageEnabled=false&userInfo.displayName=${encodeURIComponent(currentUserName)}`}
+              allow="camera; microphone; display-capture; fullscreen; autoplay"
+              className="flex-1 w-full border-0 bg-slate-950"
+            />
           </div>
         </div>
       )}

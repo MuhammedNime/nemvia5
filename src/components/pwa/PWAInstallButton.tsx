@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Smartphone, Download, X } from 'lucide-react';
 import { usePWAInstall } from './usePWAInstall';
-import { isNativeApp } from '../../lib/native';
+import { isNativeApp, resolveApiUrl } from '../../lib/native';
 
 export const PWAInstallButton: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
@@ -19,15 +19,28 @@ export const PWAInstallButton: React.FC = () => {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleInstallClick}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-sm transition-all hover:scale-105 cursor-pointer"
-        title="تثبيت تطبيق NEMVIA على الهاتف أو سطح المكتب"
-      >
-        {isInstallable ? <Download className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
-        <span>تثبيت تطبيق الهاتف</span>
-      </button>
+      <div className="inline-flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={handleInstallClick}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-sm transition-all hover:scale-105 cursor-pointer"
+          title="تثبيت تطبيق NEMVIA على الهاتف أو سطح المكتب"
+        >
+          {isInstallable ? <Download className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
+          <span>تثبيت تطبيق الهاتف</span>
+        </button>
+        {!isIOS && (
+          <a
+            href={resolveApiUrl('/download/nemvia.apk')}
+            download="NEMVIA.apk"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all"
+            title="تنزيل ملف تثبيت أندرويد APK مباشرة"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span>تنزيل Android APK</span>
+          </a>
+        )}
+      </div>
 
       {showGuideModal && (
         <div

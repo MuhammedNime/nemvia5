@@ -42,16 +42,20 @@ code, pre, .font-mono {
 }
 
 @media print {
-  body.nemvia-printing-exam * {
+  body.nemvia-printing-exam *,
+  body.nemvia-printing-gradebook * {
     visibility: hidden !important;
   }
   body.nemvia-printing-exam #nemvia-printable-exam,
-  body.nemvia-printing-exam #nemvia-printable-exam * {
+  body.nemvia-printing-exam #nemvia-printable-exam *,
+  body.nemvia-printing-gradebook #nemvia-printable-gradebook,
+  body.nemvia-printing-gradebook #nemvia-printable-gradebook * {
     visibility: visible !important;
     background-color: #ffffff !important;
     color: #0f172a !important;
   }
-  body.nemvia-printing-exam #nemvia-printable-exam {
+  body.nemvia-printing-exam #nemvia-printable-exam,
+  body.nemvia-printing-gradebook #nemvia-printable-gradebook {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -63,7 +67,8 @@ code, pre, .font-mono {
     overflow: visible !important;
     max-height: none !important;
   }
-  body.nemvia-printing-exam .no-print {
+  body.nemvia-printing-exam .no-print,
+  body.nemvia-printing-gradebook .no-print {
     display: none !important;
   }
 }

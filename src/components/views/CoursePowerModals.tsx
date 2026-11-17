@@ -43,6 +43,7 @@ import {
   loadQuestionBank,
   removeQuestionFromBank,
   saveQuestionsToBank,
+  syncQuestionBankWithCloud,
 } from '../../lib/questionBank';
 
 const TYPE_LABELS: Record<QuizQuestionType, string> = {
@@ -660,6 +661,17 @@ export const QuestionBankModal: React.FC<{
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!userId) return;
+    void syncQuestionBankWithCloud(userId).then(merged => {
+      if (active) setItems(merged);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   const subjects = useMemo(() => {
     const s = new Set(items.map(i => i.subject).filter(Boolean));

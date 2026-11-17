@@ -21,3 +21,10 @@
 10. Client-forged `created_at` timestamp not equal to `request.time` -> **DENIED**.
 11. Student grading their own `/submissions/{id}` (`affectedKeys: ['grade']`) -> **DENIED**.
 12. Deleting another user's `/comments/{commentId}` without admin privileges -> **DENIED**.
+13. Public/anonymous `list` on `/guardian_reports` or `/question_bank` -> **DENIED** (`guardian_reports` allows only exact `get` by 8-16 char code or owner `list`, zero PII).
+14. Non-participant reading/writing `/calls/{callId}` or `/calls/{callId}/candidates/{candId}` -> **DENIED**.
+15. Student overwriting another student's `/live_attendance/{attId}` without hosting the parent `live_sessions` doc -> **DENIED**.
+16. Public/anonymous `list` on `/certificates` or forging another student's `student_id` -> **DENIED** (`certificates` allows only exact `get` by 8-16 char code or owner `list`, zero PII).
+17. Writing another user's `/chat_presence/{otherUid}` or `/polls/{pollId}/votes/{otherUid}` -> **DENIED**.
+18. Voting with an out-of-range `option_index >= options.size()` on `/polls/{pollId}/votes/{uid}` -> **DENIED**.
+19. Non-member creating a `/class_resources/{resId}` inside a class they neither teach nor belong to, or spoofing `uploader_id` -> **DENIED**.

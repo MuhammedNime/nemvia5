@@ -26,9 +26,26 @@ import {
   Target,
   Trash2,
   Loader2,
+  ShieldCheck,
+  Share2,
+  Copy,
+  BarChart2,
+  PlusCircle,
 } from 'lucide-react';
-import { Profile } from '../../types';
+import QRCode from 'qrcode';
+import { Profile, VerifiedCertificate } from '../../types';
 import { generateFlashcardsAI } from '../../lib/ai';
+import * as api from '../../lib/api';
+import { getRemoteAppBaseUrl, shareAppLink } from '../../lib/native';
+import {
+  buildWeeklySummary,
+  loadStudyTracker,
+  logStudySession,
+  removeStudyLog,
+  setDailyStudyGoal,
+  StudyTrackerState,
+} from '../../lib/studyTracker';
+import { CertificateVerifyModal } from './CertificateVerifyModal';
 
 interface StudyToolsViewProps {
   currentProfile: Profile;
@@ -205,13 +222,51 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
     setCurrentCardIndex(0);
   };
 
-  // POMODORO TIMER STATE
+  // POMODORO TIMER + STUDY PLANNER STATE
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerMode, setTimerMode] = useState<'work' | 'break'>('work');
   const [ambientSound, setAmbientSound] = useState<'none' | 'rain' | 'library' | 'waves'>('none');
   const audioContextRef = useRef<AudioContext | null>(null);
   const soundNodeRef = useRef<AudioNode | null>(null);
+
+  const [tracker, setTracker] = useState<StudyTrackerState>(() => loadStudyTracker(currentProfile.id));
+  const [studySubject, setStudySubject] = useState('الرياضيات المتقدمة');
+  const [manualSubject, setManualSubject] = useState('المراجعة اليومية');
+  const [manualMinutes, setManualMinutes] = useState(30);
+  const weeklySummary = React.useMemo(() => buildWeeklySummary(tracker), [tracker]);
+
+  // VERIFIED QR CERTIFICATE STATE
+  const certStorageKey = `nemvia-cert-code-${currentProfile.id}`;
+  const [verifiedCert, setVerifiedCert] = useState<VerifiedCertificate | null>(null);
+  const [certQrDataUrl, setCertQrDataUrl] = useState<string>('');
+  const [issuingCert, setIssuingCert] = useState(false);
+  const [certErr, setCertErr] = useState<string | null>(null);
+  const [certVerifyOpen, setCertVerifyOpen] = useState(false);
+  const [certCopied, setCertCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const savedCode = typeof window !== 'undefined' ? localStorage.getItem(certStorageKey) || '' : '';
+    if (!savedCode) return;
+    api.fetchVerifiedCertificate(savedCode).then(cert => {
+      if (!cancelled && cert) setVerifiedCert(cert);
+    });
+    return () => { cancelled = true; };
+  }, [certStorageKey]);
+
+  useEffect(() => {
+    if (!verifiedCert?.cert_code) {
+      setCertQrDataUrl('');
+      return;
+    }
+    let cancelled = false;
+    const verifyUrl = `${getRemoteAppBaseUrl()}/?cert=${encodeURIComponent(verifiedCert.cert_code)}`;
+    QRCode.toDataURL(verifyUrl, { width: 200, margin: 1 })
+      .then(url => { if (!cancelled) setCertQrDataUrl(url); })
+      .catch(() => { if (!cancelled) setCertQrDataUrl(''); });
+    return () => { cancelled = true; };
+  }, [verifiedCert?.cert_code]);
 
   // Timer Tick
   useEffect(() => {
@@ -224,6 +279,7 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
       setIsTimerRunning(false);
       if (timerMode === 'work') {
         onRewardXP(50);
+        setTracker(logStudySession(currentProfile.id, studySubject, 25, 'pomodoro'));
         setTimerMode('break');
         setTimerSeconds(5 * 60);
       } else {
@@ -232,7 +288,7 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
       }
     }
     return () => clearInterval(interval);
-  }, [isTimerRunning, timerSeconds, timerMode]);
+  }, [isTimerRunning, timerSeconds, timerMode, currentProfile.id, studySubject]);
 
   // Web Audio Synthesizer for ambient sounds (100% offline, pure Web Audio)
   const stopAmbientSound = () => {
@@ -509,10 +565,32 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
     }
   }, [activeTab, fxExpr, gxExpr, graphScale, probeNum, probeFx, evaluateMath]);
 
-  // CERTIFICATE DOWNLOAD / PRINT
+  // CERTIFICATE DOWNLOAD / PRINT / ISSUE QR
   const handlePrintCertificate = () => {
     window.print();
   };
+
+  const handleIssueOfficialCert = async () => {
+    setIssuingCert(true);
+    setCertErr(null);
+    try {
+      const existingCode = verifiedCert?.cert_code || (typeof window !== 'undefined' ? localStorage.getItem(certStorageKey) || '' : '');
+      const issued = await api.issueVerifiedCertificate({
+        student: currentProfile,
+        existingCode: existingCode || undefined,
+      });
+      setVerifiedCert(issued);
+      try { localStorage.setItem(certStorageKey, issued.cert_code); } catch { /* ignore */ }
+    } catch (err: any) {
+      setCertErr(err?.message || 'تعذّر توثيق الشهادة على الخادم.');
+    } finally {
+      setIssuingCert(false);
+    }
+  };
+
+  const certVerifyUrl = verifiedCert
+    ? `${getRemoteAppBaseUrl()}/?cert=${encodeURIComponent(verifiedCert.cert_code)}`
+    : '';
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -829,16 +907,27 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: POMODORO FOCUS ROOM & SOOTHING AMBIENT SOUNDS */}
+      {/* TAB 2: POMODORO FOCUS ROOM & WEEKLY STUDY TRACKER */}
       {activeTab === 'pomodoro' && (
-        <div className="max-w-xl mx-auto space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm text-center space-y-6">
-            <div className="flex items-center justify-center gap-2">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm text-center space-y-5">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <span className={`px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
                 timerMode === 'work' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
               }`}>
                 {timerMode === 'work' ? '🔥 جلسة تركيز مكثفة (25 دقيقة)' : '☕ وقت استراحة قصيرة (5 دقائق)'}
               </span>
+            </div>
+
+            <div className="max-w-xs mx-auto text-xs space-y-1">
+              <label className="font-bold text-slate-500 block">المادة الحالية للتركيز (تُسجّل تلقائياً عند انتهاء الجلسة):</label>
+              <input
+                type="text"
+                value={studySubject}
+                onChange={e => setStudySubject(e.target.value)}
+                placeholder="اسم المادة..."
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-center outline-none focus:border-[#1677c7]"
+              />
             </div>
 
             {/* Giant Digital Clock */}
@@ -874,7 +963,7 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
             </div>
 
             {/* Ambient Sound Generator for Deep Focus */}
-            <div className="pt-6 border-t border-slate-100 space-y-3">
+            <div className="pt-5 border-t border-slate-100 space-y-3">
               <span className="text-xs font-bold text-slate-600 block">
                 أصوات بيئية مهدئة ومحفزة للتركيز (توليد صوتي نقي بدون إنترنت):
               </span>
@@ -902,6 +991,148 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Weekly Study Planner & Time Analytics */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 space-y-5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-sky-50 text-[#1677c7] flex items-center justify-center">
+                  <BarChart2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900">مخطط المذاكرة الأسبوعي وتحليل الوقت</h3>
+                  <p className="text-[11px] text-slate-500">
+                    إجمالي هذا الأسبوع: <strong className="text-slate-900">{weeklySummary.weeklyMinutes} دقيقة</strong> · اليوم: <strong className="text-[#1677c7]">{weeklySummary.todayMinutes} / {tracker.dailyGoalMinutes} د</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold">الهدف اليومي:</span>
+                <select
+                  value={tracker.dailyGoalMinutes}
+                  onChange={e => setTracker(setDailyStudyGoal(currentProfile.id, Number(e.target.value)))}
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none"
+                >
+                  {[30, 60, 90, 120, 180].map(m => (
+                    <option key={m} value={m}>{m} دقيقة</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Daily Goal Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-l from-[#1677c7] to-emerald-500 transition-all duration-300"
+                  style={{ width: `${Math.min(100, Math.round((weeklySummary.todayMinutes / Math.max(1, tracker.dailyGoalMinutes)) * 100))}%` }}
+                />
+              </div>
+            </div>
+
+            {/* 7-Day Bar Chart */}
+            <div className="grid grid-cols-7 gap-2 items-end h-32 pt-3 px-2 bg-slate-50/70 rounded-2xl border border-slate-100">
+              {(() => {
+                const maxDay = Math.max(tracker.dailyGoalMinutes, ...weeklySummary.days.map(d => d.minutes), 30);
+                return weeklySummary.days.map(d => {
+                  const hPct = Math.max(6, Math.round((d.minutes / maxDay) * 100));
+                  const reached = d.minutes >= tracker.dailyGoalMinutes;
+                  return (
+                    <div key={d.date} className="flex flex-col items-center justify-end h-full gap-1 pb-2">
+                      <span className="text-[10px] font-bold text-slate-500 tabular-nums">{d.minutes}د</span>
+                      <div className="w-full max-w-[28px] flex-1 flex items-end">
+                        <div
+                          className={`w-full rounded-t-lg transition-all ${reached ? 'bg-emerald-500' : 'bg-[#1677c7]'}`}
+                          style={{ height: `${hPct}%` }}
+                          title={`${d.label}: ${d.minutes} دقيقة`}
+                        />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-700 truncate max-w-full">{d.label}</span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Manual Session Logger */}
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (!manualSubject.trim() || manualMinutes < 1) return;
+                setTracker(logStudySession(currentProfile.id, manualSubject.trim(), manualMinutes, 'manual'));
+                onRewardXP(Math.min(30, Math.max(5, Math.round(manualMinutes / 3))));
+              }}
+              className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100"
+            >
+              <input
+                type="text"
+                value={manualSubject}
+                onChange={e => setManualSubject(e.target.value)}
+                placeholder="المادة (مثال: فيزياء، برمجة...)"
+                className="flex-1 min-w-[160px] p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#1677c7]"
+                required
+              />
+              <input
+                type="number"
+                min={5}
+                max={300}
+                step={5}
+                value={manualMinutes}
+                onChange={e => setManualMinutes(Number(e.target.value) || 15)}
+                className="w-24 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-center outline-none"
+              />
+              <span className="text-slate-500 font-bold">دقيقة</span>
+              <button
+                type="submit"
+                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>تسجيل جلسة دراسة</span>
+              </button>
+            </form>
+
+            {/* Subject Breakdown & Recent Sessions */}
+            {weeklySummary.bySubject.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <span className="font-bold text-slate-700 block">توزيع ساعات المذاكرة حسب المادة (آخر ٧ أيام):</span>
+                <div className="flex flex-wrap gap-2">
+                  {weeklySummary.bySubject.map(s => (
+                    <span key={s.subject} className="px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200 text-[#0f233a] font-bold">
+                      {s.subject}: {s.minutes} د
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {tracker.logs.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <span className="font-bold text-slate-600 block">آخر الجلسات المسجلة:</span>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {tracker.logs.slice(0, 6).map(log => (
+                    <div key={log.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-bold text-slate-800 truncate">{log.subject}</span>
+                        <span className="text-[10px] text-slate-400">({log.source === 'pomodoro' ? 'بومودورو' : 'يدوي'})</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-black text-[#1677c7] tabular-nums">{log.minutes} د</span>
+                        <button
+                          type="button"
+                          onClick={() => setTracker(removeStudyLog(currentProfile.id, log.id))}
+                          className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                          title="حذف السجل"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1019,19 +1250,77 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 4: OFFICIAL CERTIFICATE WITH FOUNDER MOHAMMED JAMAL NIME */}
+      {/* TAB 4: OFFICIAL QR-VERIFIED CERTIFICATE */}
       {activeTab === 'certificate' && (
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-700">شهادة إتمام معتمدة قابلة للطباعة والتنزيل:</span>
-            <button
-              onClick={handlePrintCertificate}
-              className="px-4 py-2 bg-[#1677c7] hover:bg-[#125fa0] text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-sm"
-            >
-              <Printer className="w-4 h-4" />
-              <span>طباعة / حفظ الشهادة PDF</span>
-            </button>
+        <div className="max-w-2xl mx-auto space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-bold text-slate-700">شهادة إتمام رقمية موثّقة برمز QR وقابلة للطباعة:</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={issuingCert}
+                onClick={() => void handleIssueOfficialCert()}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                {issuingCert ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                <span>{verifiedCert ? 'تحديث رصيد الشهادة الموثقة' : 'توثيق الشهادة وتوليد QR رسمي'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCertVerifyOpen(true)}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl cursor-pointer"
+              >
+                التحقق من شهادة
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintCertificate}
+                className="px-4 py-2 bg-[#1677c7] hover:bg-[#125fa0] text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-sm"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة / PDF</span>
+              </button>
+            </div>
           </div>
+
+          {certErr && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+              {certErr}
+            </div>
+          )}
+
+          {verifiedCert && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="space-y-0.5">
+                <span className="font-black text-emerald-900 block">
+                  الشهادة موثقة رسمياً برمز: <span className="font-mono" dir="ltr">{verifiedCert.cert_code}</span>
+                </span>
+                <span className="text-[11px] text-emerald-800">يمكن لأي جهة مسح رمز QR أو فتح الرابط للتحقق الفوري من صحتها.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(certVerifyUrl).catch(() => {});
+                    setCertCopied(true);
+                    setTimeout(() => setCertCopied(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  {certCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{certCopied ? 'تم النسخ' : 'نسخ رابط التحقق'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void shareAppLink('شهادتي الموثقة من NEMVIA', `تحقق من شهادة ${currentProfile.display_name} على NEMVIA`, certVerifyUrl)}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>مشاركة</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Luxury Academic Certificate Preview */}
           <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-amber-50/60 via-white to-sky-50/50 border-8 border-double border-amber-600/40 shadow-2xl relative overflow-hidden space-y-8 text-center print:border-none print:shadow-none">
@@ -1059,23 +1348,37 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
                 {currentProfile.display_name}
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed pt-2">
-                شارك(ت) في منصة NEMVIA التعليمية وحصل(ت) على رصيد إنجاز <strong>{currentProfile.points} XP</strong> من خلال الاختبارات والمراجعة والنشاط. شهادة تحفيزية داخل المنصة.
+                شارك(ت) في منصة NEMVIA التعليمية وحصل(ت) على رصيد إنجاز <strong>{verifiedCert ? verifiedCert.points : currentProfile.points} XP</strong> من خلال الاختبارات والمراجعة والنشاط.
               </p>
             </div>
 
-            {/* Signatures & Seal */}
-            <div className="pt-8 border-t border-amber-900/10 flex items-center justify-between text-xs px-4">
+            {/* Signatures, QR Verification & Seal */}
+            <div className="pt-8 border-t border-amber-900/10 flex flex-wrap items-center justify-between gap-4 text-xs px-2 sm:px-4">
               <div className="text-right space-y-1">
-                <span className="text-[10px] text-slate-400 block font-mono">رقم المرجع:</span>
-                <span className="font-mono font-bold text-slate-700 text-xs">NEMVIA-{currentProfile.id.slice(0, 8).toUpperCase()}</span>
-                <span className="text-[10px] text-slate-400 block">التاريخ: {new Date().toLocaleDateString('ar')}</span>
+                <span className="text-[10px] text-slate-400 block font-mono">رمز التحقق:</span>
+                <span className="font-mono font-bold text-slate-700 text-xs" dir="ltr">
+                  {verifiedCert ? verifiedCert.cert_code : `NEMVIA-${currentProfile.id.slice(0, 8).toUpperCase()}`}
+                </span>
+                <span className="text-[10px] text-slate-400 block">
+                  التاريخ: {new Date(verifiedCert?.issued_at || Date.now()).toLocaleDateString('ar')}
+                </span>
               </div>
 
-              {/* Gold Seal */}
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-white flex flex-col items-center justify-center shadow-lg border-2 border-white ring-4 ring-amber-200">
-                <Award className="w-6 h-6 text-white" />
-                <span className="text-[8px] font-black uppercase">NEMVIA</span>
-              </div>
+              {certQrDataUrl ? (
+                <div className="flex flex-col items-center gap-1">
+                  <img
+                    src={certQrDataUrl}
+                    alt="رمز التحقق QR"
+                    className="w-20 h-20 rounded-xl border border-slate-200 bg-white p-1"
+                  />
+                  <span className="text-[9px] font-bold text-emerald-700">امسح للتحقق</span>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-white flex flex-col items-center justify-center shadow-lg border-2 border-white ring-4 ring-amber-200">
+                  <Award className="w-6 h-6 text-white" />
+                  <span className="text-[8px] font-black uppercase">NEMVIA</span>
+                </div>
+              )}
 
               {/* Founder Signature with exact spelling: محمد جمال نعمه */}
               <div className="text-left space-y-1">
@@ -1085,6 +1388,13 @@ export const StudyToolsView: React.FC<StudyToolsViewProps> = ({
               </div>
             </div>
           </div>
+
+          {certVerifyOpen && (
+            <CertificateVerifyModal
+              initialCode={verifiedCert?.cert_code || ''}
+              onClose={() => setCertVerifyOpen(false)}
+            />
+          )}
         </div>
       )}
 

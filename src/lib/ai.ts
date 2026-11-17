@@ -217,3 +217,20 @@ export async function generateClassInsightsAI(params: {
 }): Promise<ClassInsightsResult> {
   return postAI<ClassInsightsResult>('/api/ai/class-insights', params);
 }
+
+export interface PaperScanResult {
+  extractedText: string;
+  analysis: string;
+  steps: string[];
+  finalAnswer: string;
+}
+
+export async function scanPaperAI(params: {
+  imageBase64: string;
+  mimeType?: string;
+  mode?: 'solve' | 'grade' | 'notes';
+  extraPrompt?: string;
+}): Promise<PaperScanResult> {
+  return postAI<PaperScanResult>('/api/ai/scan-paper', params);
+}
+

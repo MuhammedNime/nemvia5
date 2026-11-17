@@ -8,9 +8,14 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Download,
+  Video,
+  PenTool,
+  Loader2,
 } from 'lucide-react';
-import { AppRole, ClassItem, ClassMemberInfo, LiveSession } from '../../types';
+import { AppRole, ClassItem, ClassMemberInfo, LiveAttendanceStatus, LiveSession } from '../../types';
 import { saveOrShareBlobFile } from '../../lib/native';
+import * as api from '../../lib/api';
+import { WhiteboardModal } from '../WhiteboardModal';
 
 interface LiveClassroomViewProps {
   currentRole: AppRole;
@@ -72,6 +77,9 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
 
   const [attendanceModalSession, setAttendanceModalSession] = useState<LiveSession | null>(null);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceRecord>>({});
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [activeRoomSession, setActiveRoomSession] = useState<LiveSession | null>(null);
+  const [whiteboardOpen, setWhiteboardOpen] = useState(false);
 
   const myClasses = classes.filter(c => c.teacher_id === currentUserId);
   const canHost = currentRole === 'teacher' || currentRole === 'admin';
@@ -105,22 +113,47 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
 
   const recordCheckIn = (session: LiveSession, userId = currentUserId, userName = currentUserName) => {
     const prev = loadAttendance(session.id);
+    const checkedAt = prev[userId]?.checkedAt || new Date().toISOString();
+    const status = prev[userId]?.status || 'present';
     const next: Record<string, AttendanceRecord> = {
       ...prev,
       [userId]: {
         userId,
         name: userName,
-        status: prev[userId]?.status || 'present',
-        checkedAt: prev[userId]?.checkedAt || new Date().toISOString(),
+        status,
+        checkedAt,
       },
     };
     saveAttendance(session.id, next);
     if (attendanceModalSession?.id === session.id) setAttendanceMap(next);
+    void api.upsertLiveAttendance({
+      session_id: session.id,
+      user_id: userId,
+      user_name: userName,
+      status,
+      checked_at: checkedAt,
+    });
   };
 
-  const openAttendanceSheet = (session: LiveSession) => {
-    const existing = loadAttendance(session.id);
-    const merged: Record<string, AttendanceRecord> = { ...existing };
+  const openAttendanceSheet = async (session: LiveSession) => {
+    const existingLocal = loadAttendance(session.id);
+    const merged: Record<string, AttendanceRecord> = { ...existingLocal };
+    setAttendanceMap(merged);
+    setAttendanceModalSession(session);
+    setAttendanceLoading(true);
+
+    try {
+      const cloudRows = await api.listLiveAttendance(session.id);
+      cloudRows.forEach(r => {
+        merged[r.user_id] = {
+          userId: r.user_id,
+          name: r.user_name,
+          status: r.status as AttendanceStatus,
+          checkedAt: r.checked_at,
+        };
+      });
+    } catch { /* fallback to local cache */ }
+
     if (session.class_id) {
       classMembers
         .filter(m => m.class_id === session.class_id)
@@ -131,24 +164,41 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
         });
     }
     saveAttendance(session.id, merged);
-    setAttendanceMap(merged);
-    setAttendanceModalSession(session);
+    setAttendanceMap({ ...merged });
+    setAttendanceLoading(false);
   };
 
   const updateAttendanceStatus = (userId: string, status: AttendanceStatus) => {
     if (!attendanceModalSession) return;
     const prev = attendanceMap[userId];
     if (!prev) return;
+    const checkedAt = status !== 'absent' ? prev.checkedAt || new Date().toISOString() : undefined;
     const next = {
       ...attendanceMap,
       [userId]: {
         ...prev,
         status,
-        checkedAt: status !== 'absent' ? prev.checkedAt || new Date().toISOString() : undefined,
+        checkedAt,
       },
     };
     setAttendanceMap(next);
     saveAttendance(attendanceModalSession.id, next);
+    void api.upsertLiveAttendance({
+      session_id: attendanceModalSession.id,
+      user_id: userId,
+      user_name: prev.name,
+      status: status as LiveAttendanceStatus,
+      checked_at: checkedAt,
+    });
+  };
+
+  const buildEmbedUrl = (url: string) => {
+    if (/meet\.jit\.si\//i.test(url)) {
+      const base = url.split('#')[0];
+      const safeName = encodeURIComponent(currentUserName || 'NEMVIA User');
+      return `${base}#config.prejoinPageEnabled=false&userInfo.displayName="${safeName}"`;
+    }
+    return url;
   };
 
   const exportAttendanceCsv = () => {
@@ -185,8 +235,17 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
           </p>
         </div>
 
-        {canHost && (
-          <div className="flex shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setWhiteboardOpen(true)}
+            className="min-h-[44px] px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors whitespace-nowrap"
+          >
+            <PenTool className="w-4 h-4 text-[#1677c7]" />
+            <span>السبورة التفاعلية</span>
+          </button>
+
+          {canHost && (
             <button
               type="button"
               onClick={() => setShowSchedule(true)}
@@ -195,8 +254,8 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
               <Plus className="w-4 h-4" />
               <span>جدولة حصة جديدة</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {showSchedule && (
@@ -306,16 +365,17 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
                     </>
                   )}
                   {s.meeting_url && s.status !== 'ended' && (
-                    <a
-                      href={s.meeting_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => recordCheckIn(s)}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        recordCheckIn(s);
+                        setActiveRoomSession(s);
+                      }}
                       className="min-h-[40px] px-4 py-2 bg-[#1677c7] hover:bg-[#125fa0] text-white font-bold rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>انضم للحصة</span>
-                    </a>
+                      <Video className="w-3.5 h-3.5" />
+                      <span>دخول القاعة المباشرة</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -339,7 +399,12 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
             </div>
 
             <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-2xl">
-              {Object.values(attendanceMap).length === 0 ? (
+              {attendanceLoading && Object.values(attendanceMap).length === 0 ? (
+                <div className="py-8 flex items-center justify-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#1677c7]" />
+                  <span>جاري مزامنة سجل الحضور من السحابة...</span>
+                </div>
+              ) : Object.values(attendanceMap).length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-8">لم يسجّل أحد حضوره لهذه الحصة بعد.</p>
               ) : (
                 Object.values(attendanceMap).map(rec => (
@@ -393,6 +458,67 @@ export const LiveClassroomView: React.FC<LiveClassroomViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Embedded In-App Live Classroom Modal */}
+      {activeRoomSession && activeRoomSession.meeting_url && (
+        <div className="fixed inset-0 z-[75] bg-slate-950/90 backdrop-blur-md flex flex-col p-2 sm:p-4" dir="rtl">
+          <div className="bg-[#0f233a] text-white rounded-t-3xl px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-white/10">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-black text-sm truncate">{activeRoomSession.title}</h3>
+                <p className="text-[11px] text-sky-300">تم تسجيل حضورك تلقائياً · {activeRoomSession.host_name}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setWhiteboardOpen(true)}
+                className="min-h-[36px] px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <PenTool className="w-3.5 h-3.5" />
+                <span>السبورة</span>
+              </button>
+
+              <a
+                href={activeRoomSession.meeting_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-h-[36px] px-3 py-1.5 rounded-xl bg-[#1677c7] hover:bg-[#125fa0] text-white text-xs font-bold flex items-center gap-1.5"
+                title="فتح في متصفح خارجي إذا حُجب التضمين"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">نافذة خارجية</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => setActiveRoomSession(null)}
+                className="min-h-[36px] px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black flex items-center gap-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>مغادرة</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 bg-black rounded-b-3xl overflow-hidden border border-slate-800">
+            <iframe
+              src={buildEmbedUrl(activeRoomSession.meeting_url)}
+              title={activeRoomSession.title}
+              allow="camera; microphone; fullscreen; display-capture; autoplay"
+              className="w-full h-full border-0"
+            />
+          </div>
+        </div>
+      )}
+
+      <WhiteboardModal
+        open={whiteboardOpen}
+        onClose={() => setWhiteboardOpen(false)}
+        title="السبورة التفاعلية للحصة المباشرة"
+      />
     </div>
   );
 };
