@@ -427,3 +427,31 @@ export interface ClassResource {
   external_url?: string;
   created_at: string;
 }
+
+export interface TimetableSlot {
+  id: string;
+  class_id: string;
+  teacher_id: string;
+  class_title: string;
+  subject: string;
+  day_of_week: number; // 0=Sunday .. 6=Saturday
+  start_time: string;
+  end_time: string;
+  room?: string;
+  created_at: string;
+}
+
+export type ClassAttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
+
+export interface ClassAttendanceRecord {
+  id: string;
+  class_id: string;
+  date_key: string;
+  student_id: string;
+  student_name: string;
+  teacher_id: string;
+  status: ClassAttendanceStatus;
+  note?: string;
+  updated_at: string;
+}
+

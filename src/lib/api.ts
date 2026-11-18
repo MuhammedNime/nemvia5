@@ -34,7 +34,7 @@ import {
   ContentReport, ContactInfo, FollowRequestItem, ClassMemberInfo,
   GuardianGradeEntry, GuardianReport, CallSession, CallStatus, CallType, LiveAttendanceRecord, LiveAttendanceStatus,
   VerifiedCertificate, ChatPresence, PollScopeType, PollItem, PollVoteItem,
-  ClassResource, ClassResourceKind,
+  ClassResource, ClassResourceKind, TimetableSlot, ClassAttendanceRecord, ClassAttendanceStatus,
 } from '../types';
 
 /* ------------------------------------------------------------------ */
@@ -2284,6 +2284,9 @@ export async function deleteOwnAccount() {
       ['certificates', 'student_id'],
       ['polls', 'creator_id'],
       ['class_resources', 'uploader_id'],
+      ['timetable_slots', 'teacher_id'],
+      ['class_attendance', 'student_id'],
+      ['class_attendance', 'teacher_id'],
     ] as const;
 
     for (const [colName, field] of ownedCollections) {
@@ -3156,3 +3159,165 @@ export async function deleteClassResource(resourceId: string): Promise<void> {
     handleFirestoreError(err, OperationType.DELETE, `class_resources/${resourceId}`);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Weekly Timetable Slots                                              */
+/* ------------------------------------------------------------------ */
+
+export function subscribeTimetableSlots(
+  onUpdate: (slots: TimetableSlot[]) => void,
+): () => void {
+  return onSnapshot(
+    query(collection(db, 'timetable_slots'), where('class_id', '!=', ''), limit(250)),
+    snap => {
+      const items: TimetableSlot[] = snap.docs
+        .map(d => {
+          const r = d.data() as Row;
+          return {
+            id: d.id,
+            class_id: String(r.class_id || ''),
+            teacher_id: String(r.teacher_id || ''),
+            class_title: String(r.class_title || 'صف'),
+            subject: String(r.subject || 'مادة'),
+            day_of_week: Math.max(0, Math.min(6, Number(r.day_of_week ?? 0))),
+            start_time: String(r.start_time || '08:00'),
+            end_time: String(r.end_time || '08:45'),
+            room: r.room ? String(r.room) : undefined,
+            created_at: toIso(r.created_at),
+          };
+        })
+        .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
+      onUpdate(items);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'timetable_slots');
+      }
+    },
+  );
+}
+
+export async function createTimetableSlot(params: {
+  classId: string;
+  teacherId: string;
+  classTitle: string;
+  subject: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  room?: string;
+}): Promise<string> {
+  const slotRef = doc(collection(db, 'timetable_slots'));
+  const payload: Record<string, any> = {
+    class_id: params.classId.slice(0, 128),
+    teacher_id: params.teacherId.slice(0, 128),
+    class_title: (params.classTitle.trim() || 'صف').slice(0, 120),
+    subject: (params.subject.trim() || 'مادة').slice(0, 120),
+    day_of_week: Math.max(0, Math.min(6, Math.round(params.dayOfWeek))),
+    start_time: params.startTime.trim().slice(0, 10),
+    end_time: params.endTime.trim().slice(0, 10),
+    created_at: serverTimestamp(),
+  };
+  if (params.room?.trim()) payload.room = params.room.trim().slice(0, 120);
+
+  try {
+    await setDoc(slotRef, payload);
+    return slotRef.id;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, 'timetable_slots');
+  }
+}
+
+export async function deleteTimetableSlot(slotId: string): Promise<void> {
+  if (!slotId) return;
+  try {
+    await deleteDoc(doc(db, 'timetable_slots', slotId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `timetable_slots/${slotId}`);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Daily Classroom Attendance Records                                  */
+/* ------------------------------------------------------------------ */
+
+export function subscribeClassAttendance(
+  classId: string,
+  uid: string,
+  mode: 'teacher' | 'student' | 'admin',
+  onUpdate: (records: ClassAttendanceRecord[]) => void,
+): () => void {
+  if (!classId || !uid) {
+    onUpdate([]);
+    return () => {};
+  }
+  const q = mode === 'admin'
+    ? query(collection(db, 'class_attendance'), where('class_id', '==', classId), limit(500))
+    : mode === 'teacher'
+      ? query(collection(db, 'class_attendance'), where('teacher_id', '==', uid), limit(500))
+      : query(collection(db, 'class_attendance'), where('student_id', '==', uid), limit(500));
+
+  return onSnapshot(
+    q,
+    snap => {
+      const items: ClassAttendanceRecord[] = snap.docs
+        .map(d => {
+          const r = d.data() as Row;
+          const stRaw = String(r.status || 'present');
+          const status: ClassAttendanceStatus = (['present', 'late', 'absent', 'excused'].includes(stRaw)
+            ? stRaw
+            : 'present') as ClassAttendanceStatus;
+          return {
+            id: d.id,
+            class_id: String(r.class_id || ''),
+            date_key: String(r.date_key || ''),
+            student_id: String(r.student_id || ''),
+            student_name: String(r.student_name || 'طالب'),
+            teacher_id: String(r.teacher_id || ''),
+            status,
+            note: r.note ? String(r.note) : undefined,
+            updated_at: toIso(r.updated_at),
+          };
+        })
+        .filter(item => item.class_id === classId)
+        .sort((a, b) => b.date_key.localeCompare(a.date_key) || a.student_name.localeCompare(b.student_name, 'ar'));
+      onUpdate(items);
+    },
+    err => {
+      if (String(err?.message || '').toLowerCase().includes('permission')) {
+        handleFirestoreError(err, OperationType.LIST, 'class_attendance');
+      }
+    },
+  );
+}
+
+export async function upsertClassAttendance(params: {
+  classId: string;
+  dateKey: string;
+  studentId: string;
+  studentName: string;
+  teacherId: string;
+  status: ClassAttendanceStatus;
+  note?: string;
+}): Promise<void> {
+  if (!params.classId || !params.dateKey || !params.studentId) return;
+  const rawId = `${params.classId}_${params.dateKey}_${params.studentId}`;
+  const docId = rawId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+  const payload: Record<string, any> = {
+    class_id: params.classId.slice(0, 128),
+    date_key: params.dateKey.slice(0, 16),
+    student_id: params.studentId.slice(0, 128),
+    student_name: (params.studentName.trim() || 'طالب').slice(0, 80),
+    teacher_id: params.teacherId.slice(0, 128),
+    status: params.status,
+    updated_at: serverTimestamp(),
+  };
+  if (params.note?.trim()) payload.note = params.note.trim().slice(0, 300);
+
+  try {
+    await setDoc(doc(db, 'class_attendance', docId), payload);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `class_attendance/${docId}`);
+  }
+}
+

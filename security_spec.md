@@ -28,3 +28,4 @@
 17. Writing another user's `/chat_presence/{otherUid}` or `/polls/{pollId}/votes/{otherUid}` -> **DENIED**.
 18. Voting with an out-of-range `option_index >= options.size()` on `/polls/{pollId}/votes/{uid}` -> **DENIED**.
 19. Non-member creating a `/class_resources/{resId}` inside a class they neither teach nor belong to, or spoofing `uploader_id` -> **DENIED**.
+20. Non-teacher creating `/timetable_slots/{slotId}` for another teacher's class, or reading/modifying another student's `/class_attendance/{attId}` -> **DENIED**.

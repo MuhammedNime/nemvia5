@@ -49,7 +49,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         : copy.header.roleStudent;
 
   return (
-    <aside className="w-60 sticky top-14 h-[calc(100vh-3.5rem)] py-4 px-3 flex flex-col justify-between shrink-0 overflow-y-auto">
+    <aside className="w-60 sticky top-[calc(3.5rem+var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] h-[calc(100dvh-3.5rem-var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] py-4 px-3 flex flex-col justify-between shrink-0 overflow-y-auto">
       <div className="space-y-1">
         {/* User Profile Row */}
         <button

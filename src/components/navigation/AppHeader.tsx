@@ -102,7 +102,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+    <header className="sticky top-0 z-40 pt-[var(--nemvia-safe-top,env(safe-area-inset-top,0px))] bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-4">
         {/* Zone 1: Brand / Hub Trigger (tapping logo opens Hub menu!) */}
         <button

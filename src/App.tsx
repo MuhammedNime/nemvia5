@@ -849,7 +849,7 @@ export default function App() {
       }
     };
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center p-6 bg-slate-50 font-['Cairo',sans-serif]" dir="rtl">
+      <div className="min-h-[100dvh] flex items-center justify-center p-6 pt-[calc(1.5rem+var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] bg-slate-50 font-['Cairo',sans-serif]" dir="rtl">
         <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-6 sm:p-7 text-center space-y-4 shadow-sm">
           <div className="w-12 h-12 mx-auto rounded-2xl bg-sky-50 text-[#1677c7] border border-sky-200 flex items-center justify-center">
             <MailCheck className="w-6 h-6" />
@@ -896,7 +896,7 @@ export default function App() {
   }
   if (profileError) {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 p-6 text-center bg-slate-50" dir="rtl">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 p-6 pt-[calc(1.5rem+var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] text-center bg-slate-50" dir="rtl">
         <AlertCircle className="w-10 h-10 text-rose-500" />
         <p className="font-bold text-slate-800 max-w-md">تعذّر تحميل بيانات حسابك من الخادم.</p>
         <p className="text-xs text-slate-500 max-w-md break-words" dir="auto">{profileError}</p>
@@ -920,7 +920,7 @@ export default function App() {
 
   if (profile.is_suspended) {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 p-6 text-center bg-slate-50" dir="rtl">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 p-6 pt-[calc(1.5rem+var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] text-center bg-slate-50" dir="rtl">
         <ShieldAlert className="w-12 h-12 text-rose-500" />
         <h2 className="text-lg font-black text-slate-900">تم إيقاف حسابك</h2>
         <p className="text-sm text-slate-600 max-w-sm">خالفت شروط الاستخدام أو صدر بحقك بلاغ. إن كنت تعتقد أن هذا خطأ تواصل مع إدارة المنصة.</p>
@@ -1066,7 +1066,7 @@ export default function App() {
           )}
 
           {section === 'calendar' && (
-            <CalendarView currentRole={role} currentUserId={uid} assignments={data.assignments}
+            <CalendarView currentRole={role} currentUserId={uid} classes={data.classes} assignments={data.assignments}
               submissions={data.submissions} liveSessions={data.liveSessions} onNavigate={setActiveSection} />
           )}
 
@@ -1154,7 +1154,7 @@ export default function App() {
             if (liveAlert.targetSection) setActiveSection(liveAlert.targetSection);
             setLiveAlert(null);
           }}
-          className="fixed top-20 left-4 right-4 sm:right-auto sm:w-96 z-[65] bg-white border border-sky-200 rounded-2xl shadow-xl p-4 flex items-start justify-between gap-3 cursor-pointer hover:border-[#1677c7] transition-all"
+          className="fixed top-[calc(5rem+var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] left-4 right-4 sm:right-auto sm:w-96 z-[65] bg-white border border-sky-200 rounded-2xl shadow-xl p-4 flex items-start justify-between gap-3 cursor-pointer hover:border-[#1677c7] transition-all"
           dir="rtl"
         >
           <div className="w-9 h-9 rounded-xl bg-sky-50 text-[#1677c7] flex items-center justify-center shrink-0">

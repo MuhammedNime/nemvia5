@@ -116,7 +116,7 @@ export const HubDrawerModal: React.FC<HubDrawerModalProps> = ({
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="w-full sm:w-96 max-h-[88vh] sm:max-h-full bg-white sm:h-full rounded-t-3xl sm:rounded-none sm:border-e border-slate-200 flex flex-col overflow-hidden shadow-2xl"
+        className="w-full sm:w-96 max-h-[88vh] sm:max-h-full bg-white sm:h-full sm:pt-[var(--nemvia-safe-top,env(safe-area-inset-top,0px))] pb-[env(safe-area-inset-bottom,0px)] rounded-t-3xl sm:rounded-none sm:border-e border-slate-200 flex flex-col overflow-hidden shadow-2xl"
       >
         {/* Top Grab Handle (mobile) + Header */}
         <div className="sm:hidden w-10 h-1.5 bg-slate-300 rounded-full mx-auto mt-2.5" />

@@ -156,6 +156,15 @@ export async function syncNativeStatusBar(theme: 'light' | 'dark' | 'warm'): Pro
       await StatusBar.setBackgroundColor({ color: '#ffffff' });
       await StatusBar.setStyle({ style: Style.Light });
     }
+    const info = await StatusBar.getInfo().catch(() => null);
+    if (typeof document !== 'undefined') {
+      if (info?.overlays) {
+        const px = Math.max(Number(info.height) || 28, 24);
+        document.documentElement.style.setProperty('--nemvia-safe-top', `${px}px`);
+      } else {
+        document.documentElement.style.setProperty('--nemvia-safe-top', 'env(safe-area-inset-top, 0px)');
+      }
+    }
   } catch {
     /* ignore */
   }

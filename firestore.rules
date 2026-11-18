@@ -463,6 +463,33 @@ service cloud.firestore {
         data.created_at is timestamp;
     }
 
+    function isValidTimetableSlot(data) {
+      return data.keys().hasAll(['class_id', 'teacher_id', 'class_title', 'subject', 'day_of_week', 'start_time', 'end_time', 'created_at']) &&
+        data.keys().hasOnly(['class_id', 'teacher_id', 'class_title', 'subject', 'day_of_week', 'start_time', 'end_time', 'room', 'created_at']) &&
+        data.class_id is string && data.class_id.size() >= 1 && data.class_id.size() <= 128 &&
+        data.teacher_id is string && data.teacher_id.size() >= 1 && data.teacher_id.size() <= 128 &&
+        data.class_title is string && data.class_title.size() >= 1 && data.class_title.size() <= 120 &&
+        data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120 &&
+        data.day_of_week is int && data.day_of_week >= 0 && data.day_of_week <= 6 &&
+        data.start_time is string && data.start_time.size() >= 4 && data.start_time.size() <= 10 &&
+        data.end_time is string && data.end_time.size() >= 4 && data.end_time.size() <= 10 &&
+        (!('room' in data) || (data.room is string && data.room.size() <= 120)) &&
+        data.created_at is timestamp;
+    }
+
+    function isValidClassAttendance(data) {
+      return data.keys().hasAll(['class_id', 'date_key', 'student_id', 'student_name', 'teacher_id', 'status', 'updated_at']) &&
+        data.keys().hasOnly(['class_id', 'date_key', 'student_id', 'student_name', 'teacher_id', 'status', 'note', 'updated_at']) &&
+        data.class_id is string && data.class_id.size() >= 1 && data.class_id.size() <= 128 &&
+        data.date_key is string && data.date_key.size() >= 8 && data.date_key.size() <= 16 &&
+        data.student_id is string && data.student_id.size() >= 1 && data.student_id.size() <= 128 &&
+        data.student_name is string && data.student_name.size() >= 1 && data.student_name.size() <= 80 &&
+        data.teacher_id is string && data.teacher_id.size() >= 1 && data.teacher_id.size() <= 128 &&
+        data.status in ['present', 'late', 'absent', 'excused'] &&
+        (!('note' in data) || (data.note is string && data.note.size() <= 300)) &&
+        data.updated_at is timestamp;
+    }
+
     // Health / Connection check doc
     match /test/connection {
       allow get: if true;
@@ -1096,6 +1123,73 @@ service cloud.firestore {
       allow delete: if isValidId(resourceId) && isSignedIn() && (
         isAdmin() ||
         existing().uploader_id == request.auth.uid ||
+        get(/databases/$(database)/documents/classes/$(existing().class_id)).data.teacher_id == request.auth.uid
+      );
+    }
+
+    // 32. Recurring Weekly Timetable Slots
+    match /timetable_slots/{slotId} {
+      allow get: if isValidId(slotId) && isSignedIn();
+      allow list: if isSignedIn() && existing().class_id != '';
+      allow create: if isValidId(slotId) && isVerified() && isValidTimetableSlot(incoming()) &&
+        incoming().teacher_id == request.auth.uid &&
+        incoming().created_at == request.time &&
+        exists(/databases/$(database)/documents/classes/$(incoming().class_id)) &&
+        (
+          isAdmin() ||
+          get(/databases/$(database)/documents/classes/$(incoming().class_id)).data.teacher_id == request.auth.uid
+        );
+      allow update: if isSignedIn() && isValidId(slotId) && isValidTimetableSlot(incoming()) && (
+        isAdmin() ||
+        (isVerified() &&
+         existing().teacher_id == request.auth.uid &&
+         incoming().class_id == existing().class_id &&
+         incoming().teacher_id == existing().teacher_id &&
+         incoming().created_at == existing().created_at &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['class_title', 'subject', 'day_of_week', 'start_time', 'end_time', 'room']))
+      );
+      allow delete: if isValidId(slotId) && isSignedIn() && (
+        isAdmin() ||
+        existing().teacher_id == request.auth.uid ||
+        get(/databases/$(database)/documents/classes/$(existing().class_id)).data.teacher_id == request.auth.uid
+      );
+    }
+
+    // 33. Daily Classroom Attendance Records
+    match /class_attendance/{attId} {
+      allow get: if isValidId(attId) && isSignedIn() && (
+        isAdmin() ||
+        existing().student_id == request.auth.uid ||
+        existing().teacher_id == request.auth.uid ||
+        get(/databases/$(database)/documents/classes/$(existing().class_id)).data.teacher_id == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        existing().student_id == request.auth.uid ||
+        existing().teacher_id == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isValidId(attId) && isVerified() && isValidClassAttendance(incoming()) &&
+        incoming().updated_at == request.time &&
+        exists(/databases/$(database)/documents/classes/$(incoming().class_id)) &&
+        (
+          isAdmin() ||
+          (incoming().teacher_id == request.auth.uid &&
+           get(/databases/$(database)/documents/classes/$(incoming().class_id)).data.teacher_id == request.auth.uid)
+        );
+      allow update: if isSignedIn() && isValidId(attId) && isValidClassAttendance(incoming()) && (
+        isAdmin() ||
+        (isVerified() &&
+         existing().teacher_id == request.auth.uid &&
+         incoming().class_id == existing().class_id &&
+         incoming().date_key == existing().date_key &&
+         incoming().student_id == existing().student_id &&
+         incoming().teacher_id == existing().teacher_id &&
+         incoming().updated_at == request.time &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['student_name', 'status', 'note', 'updated_at']))
+      );
+      allow delete: if isValidId(attId) && isSignedIn() && (
+        isAdmin() ||
+        existing().teacher_id == request.auth.uid ||
         get(/databases/$(database)/documents/classes/$(existing().class_id)).data.teacher_id == request.auth.uid
       );
     }

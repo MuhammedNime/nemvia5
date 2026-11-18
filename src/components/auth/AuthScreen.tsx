@@ -242,7 +242,7 @@ export const AuthScreen: React.FC = () => {
 
   if (isMobileAuthHandoff) {
     return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 font-['Cairo',sans-serif]" dir="rtl">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 pt-[calc(1rem+var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] font-['Cairo',sans-serif]" dir="rtl">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 text-center">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#0f233a] to-[#1677c7] text-white flex items-center justify-center shadow-md">
             <GraduationCap className="w-7 h-7" />
@@ -284,7 +284,7 @@ export const AuthScreen: React.FC = () => {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 font-['Cairo',sans-serif]" dir="rtl">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#0f233a] via-[#164673] to-[#1677c7] flex items-center justify-center p-4 pt-[calc(1rem+var(--nemvia-safe-top,env(safe-area-inset-top,0px)))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] font-['Cairo',sans-serif]" dir="rtl">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5">
         <div className="text-center space-y-2">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#0f233a] to-[#1677c7] text-white flex items-center justify-center shadow-md">

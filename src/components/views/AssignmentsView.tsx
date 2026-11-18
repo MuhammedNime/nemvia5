@@ -16,6 +16,7 @@ import {
   Download,
   Loader2,
   AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
 import { AppRole, Assignment, Submission, ClassItem } from '../../types';
 import { UploadedFile } from '../../lib/api';
@@ -40,6 +41,88 @@ interface AttachedFileInfo {
   size: string;
   type: string;
   url: string;
+}
+
+function normalizeForSimilarity(text: string): string {
+  return (text || '')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildShingles(text: string): Set<string> {
+  const norm = normalizeForSimilarity(text);
+  const words = norm.split(' ').filter(w => w.length >= 2);
+  const set = new Set<string>();
+  for (let i = 0; i < words.length; i++) {
+    set.add(words[i]);
+    if (i < words.length - 1) set.add(`${words[i]} ${words[i + 1]}`);
+  }
+  return set;
+}
+
+interface SimilarityMatch {
+  otherId: string;
+  otherName: string;
+  percent: number;
+  sharedWords: string[];
+}
+
+function computeSimilarityMap(subs: Submission[]): {
+  bySubId: Record<string, SimilarityMatch | undefined>;
+  flaggedPairs: Array<{ aName: string; bName: string; percent: number }>;
+} {
+  const tokens = subs.map(s => ({ sub: s, shingles: buildShingles(s.answer_text) }));
+  const bySubId: Record<string, SimilarityMatch | undefined> = {};
+  const flaggedPairs: Array<{ aName: string; bName: string; percent: number }> = [];
+
+  for (let i = 0; i < tokens.length; i++) {
+    for (let j = i + 1; j < tokens.length; j++) {
+      const a = tokens[i];
+      const b = tokens[j];
+      if (a.shingles.size < 4 || b.shingles.size < 4) continue;
+      const shared: string[] = [];
+      a.shingles.forEach(tok => {
+        if (b.shingles.has(tok)) shared.push(tok);
+      });
+      const unionSize = a.shingles.size + b.shingles.size - shared.length;
+      if (unionSize <= 0) continue;
+      const pct = Math.round((shared.length / unionSize) * 100);
+      if (pct >= 35) {
+        flaggedPairs.push({
+          aName: a.sub.student_name,
+          bName: b.sub.student_name,
+          percent: pct,
+        });
+      }
+      const prevA = bySubId[a.sub.id];
+      if (!prevA || pct > prevA.percent) {
+        bySubId[a.sub.id] = {
+          otherId: b.sub.id,
+          otherName: b.sub.student_name,
+          percent: pct,
+          sharedWords: shared.filter(w => !w.includes(' ')).slice(0, 5),
+        };
+      }
+      const prevB = bySubId[b.sub.id];
+      if (!prevB || pct > prevB.percent) {
+        bySubId[b.sub.id] = {
+          otherId: a.sub.id,
+          otherName: a.sub.student_name,
+          percent: pct,
+          sharedWords: shared.filter(w => !w.includes(' ')).slice(0, 5),
+        };
+      }
+    }
+  }
+
+  flaggedPairs.sort((x, y) => y.percent - x.percent);
+  return { bySubId, flaggedPairs };
 }
 
 export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
@@ -85,10 +168,15 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
   const [aiReviews, setAiReviews] = useState<Record<string, AssignmentReviewResult>>({});
   const [aiReviewingId, setAiReviewingId] = useState<string | null>(null);
   const [aiReviewError, setAiReviewError] = useState<Record<string, string>>({});
+  const [showSimilarityPanel, setShowSimilarityPanel] = useState(false);
 
   const selectedAssignment = assignments.find(a => a.id === activeAssignmentId) || assignments[0];
   const userSubmission = submissions.find(s => s.assignment_id === selectedAssignment?.id && s.student_id === currentUserId);
   const classSubmissions = submissions.filter(s => s.assignment_id === selectedAssignment?.id);
+  const similarityReport = React.useMemo(
+    () => (classSubmissions.length >= 2 ? computeSimilarityMap(classSubmissions) : { bySubId: {}, flaggedPairs: [] }),
+    [classSubmissions],
+  );
 
   // Handle real file selection from user device
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -433,17 +521,91 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
               {/* TEACHER WORKFLOW: Grading Desk */}
               {(currentRole === 'teacher' || currentRole === 'admin') && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <h4 className="font-bold text-slate-800 text-sm">مكتب تصحيح حلول الطلاب ({classSubmissions.length})</h4>
-                    <span className="text-xs text-slate-500">الدرجة الكلية: {selectedAssignment.total_points}</span>
+                    <div className="flex items-center gap-2">
+                      {classSubmissions.length >= 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowSimilarityPanel(p => !p)}
+                          className={`px-3 py-1 rounded-xl text-[11px] font-bold border inline-flex items-center gap-1 cursor-pointer ${
+                            similarityReport.flaggedPairs.length > 0
+                              ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <span>
+                            فحص تشابه الإجابات
+                            {similarityReport.flaggedPairs.length > 0 ? ` (${similarityReport.flaggedPairs.length})` : ''}
+                          </span>
+                        </button>
+                      )}
+                      <span className="text-xs text-slate-500">الدرجة الكلية: {selectedAssignment.total_points}</span>
+                    </div>
                   </div>
+
+                  {showSimilarityPanel && classSubmissions.length >= 2 && (
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-slate-900">تقرير فحص تشابه الإجابات بين الطلاب</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowSimilarityPanel(false)}
+                          className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {similarityReport.flaggedPairs.length === 0 ? (
+                        <p className="text-emerald-700 font-bold text-[11px]">
+                          لم يُرصد أي تطابق مرتفع (≥ 35%) بين تسليمات الطلاب في هذا الواجب.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {similarityReport.flaggedPairs.map((pair, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2.5 rounded-xl bg-white border border-amber-200 flex items-center justify-between gap-2"
+                            >
+                              <span className="font-bold text-slate-800">
+                                {pair.aName} ↔ {pair.bName}
+                              </span>
+                              <span
+                                className={`font-black tabular-nums text-[11px] ${
+                                  pair.percent >= 65 ? 'text-rose-600' : 'text-amber-700'
+                                }`}
+                              >
+                                تشابه {pair.percent}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {classSubmissions.length > 0 ? (
                     <div className="space-y-3">
-                      {classSubmissions.map(sub => (
+                      {classSubmissions.map(sub => {
+                        const simMatch = similarityReport.bySubId[sub.id];
+                        return (
                         <div key={sub.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-slate-900">{sub.student_name}</span>
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-900">{sub.student_name}</span>
+                              {simMatch && simMatch.percent >= 35 && (
+                                <span
+                                  className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${
+                                    simMatch.percent >= 65
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                  }`}
+                                >
+                                  تشابه {simMatch.percent}% مع {simMatch.otherName}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-slate-400">
                               تاريخ التسليم: {new Date(sub.submitted_at).toLocaleDateString('ar')}
                             </span>
@@ -587,7 +749,8 @@ export const AssignmentsView: React.FC<AssignmentsViewProps> = ({
                             );
                           })()}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400 text-center py-6">

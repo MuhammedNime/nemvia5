@@ -513,6 +513,39 @@
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["class_id", "uploader_id", "uploader_name", "title", "unit_name", "kind", "created_at"]
+    },
+    "TimetableSlot": {
+      "title": "TimetableSlot",
+      "description": "Recurring weekly class timetable slot.",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "class_title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "day_of_week": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "start_time": { "type": "string", "minLength": 4, "maxLength": 10 },
+        "end_time": { "type": "string", "minLength": 4, "maxLength": 10 },
+        "room": { "type": "string", "maxLength": 120 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "teacher_id", "class_title", "subject", "day_of_week", "start_time", "end_time", "created_at"]
+    },
+    "ClassAttendanceRecord": {
+      "title": "ClassAttendanceRecord",
+      "description": "Daily classroom attendance record per student and date.",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "date_key": { "type": "string", "minLength": 8, "maxLength": 16 },
+        "student_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "student_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "teacher_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["present", "late", "absent", "excused"] },
+        "note": { "type": "string", "maxLength": 300 },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "date_key", "student_id", "student_name", "teacher_id", "status", "updated_at"]
     }
   },
   "firestore": {
@@ -655,6 +688,14 @@
     "/class_resources/{resourceId}": {
       "schema": { "$ref": "#/entities/ClassResource" },
       "description": "Organized class library of books, summaries, worksheets, videos, and links grouped by unit."
+    },
+    "/timetable_slots/{slotId}": {
+      "schema": { "$ref": "#/entities/TimetableSlot" },
+      "description": "Weekly recurring class timetable slots."
+    },
+    "/class_attendance/{attId}": {
+      "schema": { "$ref": "#/entities/ClassAttendanceRecord" },
+      "description": "Daily classroom attendance records per student and date."
     }
   }
 }

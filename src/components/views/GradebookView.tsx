@@ -42,6 +42,7 @@ export const GradebookView: React.FC<GradebookViewProps> = ({
   const isTeacherOrAdmin = currentRole === 'teacher' || currentRole === 'admin';
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'اختبار' | 'واجب'>('all');
+  const [viewMode, setViewMode] = useState<'rows' | 'portfolio'>('rows');
 
   const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.title])), [classes]);
 
@@ -128,6 +129,47 @@ export const GradebookView: React.FC<GradebookViewProps> = ({
       )
     : 0;
   const pendingReviewCount = rows.filter(r => r.status === 'submitted').length;
+
+  const studentPortfolio = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        studentName: string;
+        totalItems: number;
+        gradedItems: number;
+        earnedScore: number;
+        maxScore: number;
+        quizCount: number;
+        assignmentCount: number;
+      }
+    >();
+    rows.forEach(r => {
+      const cur = map.get(r.studentName) || {
+        studentName: r.studentName,
+        totalItems: 0,
+        gradedItems: 0,
+        earnedScore: 0,
+        maxScore: 0,
+        quizCount: 0,
+        assignmentCount: 0,
+      };
+      cur.totalItems += 1;
+      if (r.itemType === 'اختبار') cur.quizCount += 1;
+      else cur.assignmentCount += 1;
+      if (r.score !== null && r.maxScore > 0) {
+        cur.gradedItems += 1;
+        cur.earnedScore += r.score;
+        cur.maxScore += r.maxScore;
+      }
+      map.set(r.studentName, cur);
+    });
+    return Array.from(map.values())
+      .map(s => ({
+        ...s,
+        avgPct: s.maxScore > 0 ? Math.round((s.earnedScore / s.maxScore) * 100) : 0,
+      }))
+      .sort((a, b) => b.avgPct - a.avgPct || b.gradedItems - a.gradedItems);
+  }, [rows]);
 
   const exportCsv = () => {
     const header = ['الطالب', 'الصف', 'النوع', 'العنوان', 'الدرجة', 'الدرجة العظمى', 'النسبة %', 'الحالة', 'ملاحظة المعلم'];
@@ -287,10 +329,75 @@ export const GradebookView: React.FC<GradebookViewProps> = ({
             ))}
           </div>
         </div>
+
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl font-bold">
+          <button
+            type="button"
+            onClick={() => setViewMode('rows')}
+            className={`px-3 py-1 rounded-lg cursor-pointer ${
+              viewMode === 'rows' ? 'bg-[#0f233a] text-white shadow-xs' : 'text-slate-600'
+            }`}
+          >
+            السجل التفصيلي
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('portfolio')}
+            className={`px-3 py-1 rounded-lg cursor-pointer ${
+              viewMode === 'portfolio' ? 'bg-[#1677c7] text-white shadow-xs' : 'text-slate-600'
+            }`}
+          >
+            ملف الإنجاز التراكمي
+          </button>
+        </div>
       </div>
 
+      {/* Portfolio Aggregate View */}
+      {viewMode === 'portfolio' && studentPortfolio.length > 0 && (
+        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <h3 className="font-black text-slate-900 text-sm">ملف الإنجاز التراكمي وترتيب الأداء</h3>
+            <span className="text-xs font-bold text-slate-500">{studentPortfolio.length} طلاب</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-start">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                <tr>
+                  <th className="py-3 px-4 text-start">#</th>
+                  <th className="py-3 px-4 text-start">الطالب</th>
+                  <th className="py-3 px-4 text-start">الاختبارات</th>
+                  <th className="py-3 px-4 text-start">الواجبات</th>
+                  <th className="py-3 px-4 text-start">المجموع الموزون</th>
+                  <th className="py-3 px-4 text-start">المعدل التراكمي</th>
+                  <th className="py-3 px-4 text-start">التقدير</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {studentPortfolio.map((st, idx) => {
+                  const rating =
+                    st.avgPct >= 90 ? 'ممتاز' : st.avgPct >= 80 ? 'جيد جداً' : st.avgPct >= 65 ? 'جيد' : st.gradedItems === 0 ? 'قيد التقييم' : 'يحتاج دعم';
+                  return (
+                    <tr key={st.studentName} className="hover:bg-slate-50/70">
+                      <td className="py-3 px-4 font-black text-slate-500 tabular-nums">{idx + 1}</td>
+                      <td className="py-3 px-4 font-bold text-slate-900">{st.studentName}</td>
+                      <td className="py-3 px-4 tabular-nums">{st.quizCount}</td>
+                      <td className="py-3 px-4 tabular-nums">{st.assignmentCount}</td>
+                      <td className="py-3 px-4 font-bold tabular-nums">
+                        {st.maxScore > 0 ? `${st.earnedScore} / ${st.maxScore}` : '—'}
+                      </td>
+                      <td className="py-3 px-4 font-black text-[#1677c7] tabular-nums">{st.avgPct}%</td>
+                      <td className="py-3 px-4 font-bold text-slate-700">{rating}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
+      <div className={`bg-white rounded-3xl border border-slate-200 overflow-hidden ${viewMode === 'portfolio' && rows.length > 0 ? 'hidden print:block' : ''}`}>
         {rows.length === 0 ? (
           <div className="p-10 text-center space-y-2 text-xs text-slate-500">
             <p className="font-bold text-slate-700">لا توجد درجات أو محاولات مسجلة ضمن هذا التصنيف بعد.</p>

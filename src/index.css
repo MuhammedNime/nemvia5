@@ -8,6 +8,8 @@
   --muted: #64748b;
   --line: #e2e8f0;
   --bg: #f8fafc;
+  --nemvia-safe-top: env(safe-area-inset-top, 0px);
+  --nemvia-safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html,

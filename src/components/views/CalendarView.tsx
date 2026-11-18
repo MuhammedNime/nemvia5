@@ -9,12 +9,14 @@ import {
   FileCheck,
   Radio,
 } from 'lucide-react';
-import { AppRole, Assignment, LiveSession, Submission } from '../../types';
+import { AppRole, Assignment, ClassItem, LiveSession, Submission } from '../../types';
 import { useAppSettings } from '../../lib/settings';
+import { TimetableTab } from './TimetableTab';
 
 interface CalendarViewProps {
   currentRole: AppRole;
   currentUserId: string;
+  classes?: ClassItem[];
   assignments: Assignment[];
   submissions: Submission[];
   liveSessions: LiveSession[];
@@ -45,12 +47,14 @@ const toDateKey = (iso: string) => {
 export const CalendarView: React.FC<CalendarViewProps> = ({
   currentRole,
   currentUserId,
+  classes = [],
   assignments,
   submissions,
   liveSessions,
   onNavigate,
 }) => {
   const { settings } = useAppSettings();
+  const [calTab, setCalTab] = useState<'monthly' | 'timetable'>('monthly');
   const now = new Date();
   const [viewMonth, setViewMonth] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
   const [selectedDayKey, setSelectedDayKey] = useState<string>(toDateKey(now.toISOString()));
@@ -193,6 +197,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
+      {/* Switcher: Monthly Calendar vs Weekly Timetable */}
+      <div className="no-print bg-white p-1.5 rounded-2xl border border-slate-200 inline-flex items-center gap-1 text-xs font-bold">
+        <button
+          type="button"
+          onClick={() => setCalTab('monthly')}
+          className={`px-4 py-2 rounded-xl cursor-pointer transition-colors ${
+            calTab === 'monthly' ? 'bg-[#1677c7] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          {settings.lang === 'en' ? 'Monthly Calendar' : 'التقويم الشهري'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setCalTab('timetable')}
+          className={`px-4 py-2 rounded-xl cursor-pointer transition-colors ${
+            calTab === 'timetable' ? 'bg-[#0f233a] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          {settings.lang === 'en' ? 'Weekly Timetable' : 'جدول الحصص الأسبوعي'}
+        </button>
+      </div>
+
+      {calTab === 'timetable' ? (
+        <TimetableTab
+          currentRole={currentRole}
+          currentUserId={currentUserId}
+          classes={classes}
+        />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Monthly Grid */}
         <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-5 space-y-4">
@@ -382,6 +415,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };
